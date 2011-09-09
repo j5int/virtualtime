@@ -73,4 +73,12 @@ def real_time():
     finally:
         _time_lock.release()
 
+def set_local_datetime(dt):
+    """Sets the current time using the given naive local datetime object"""
+    set_time(local_datetime_to_time(dt))
+
+def set_utc_datetime(dt):
+    """Sets the current time using the given naive utc datetime object"""
+    set_time(utc_datetime_to_time(dt))
+
 

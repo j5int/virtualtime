@@ -20,6 +20,13 @@ def outside(code_str, *import_modules):
         raise ValueError(errors)
     return pickle.loads(results)
 
+def check_real_time_function(time_function, code_str, *import_modules):
+    """Generic test for a linear time function that can be run by a spawned python process too"""
+    first_time = time_function()
+    outside_time = outside(code_str, *import_modules)
+    second_time = time_function()
+    assert first_time < outside_time < second_time
+
 def run_time_function_test(time_function, set_function, diff):
     """Generic test for time_function and a set_function that can move the return of that time_function forwards or backwards by diff"""
     first_time = time_function()
@@ -33,24 +40,15 @@ def run_time_function_test(time_function, set_function, diff):
 
 def test_real_time():
     """tests that real time is still happening in the time module"""
-    first_time = time.time()
-    outside_time = outside("time.time()", "time")
-    second_time = time.time()
-    assert first_time < outside_time < second_time
+    check_real_time_function(time.time, "time.time()", "time")
 
 def test_real_datetime_now():
     """tests that real time is still happening in the datetime module"""
-    first_time = datetime.datetime.now()
-    outside_time = outside("datetime.datetime.now()", "datetime")
-    second_time = datetime.datetime.now()
-    assert first_time < outside_time < second_time
+    check_real_time_function(datetime.datetime.now, "datetime.datetime.now()", "datetime")
 
 def test_real_datetime_tz_now():
     """tests that real time is still happening in the datetime_tz module"""
-    first_time = datetime_tz.datetime_tz.now()
-    outside_time = outside("j5.OS.datetime_tz.datetime_tz.now()", "j5.OS.datetime_tz")
-    second_time = datetime_tz.datetime_tz.now()
-    assert first_time < outside_time < second_time
+    check_real_time_function(datetime_tz.datetime_tz.now, "j5.OS.datetime_tz.datetime_tz.now()", "j5.OS.datetime_tz")
 
 def test_virtual_time():
     """tests that we can set time"""
@@ -58,22 +56,18 @@ def test_virtual_time():
 
 def test_virtual_datetime_now():
     """tests that setting time and datetime are both possible"""
-    set_datetime = lambda new_time: VirtualTime.set_time(VirtualTime.local_datetime_to_time(new_time))
-    run_time_function_test(datetime.datetime.now, set_datetime, datetime.timedelta(seconds=100))
+    run_time_function_test(datetime.datetime.now, VirtualTime.set_local_datetime, datetime.timedelta(seconds=100))
 
 def test_virtual_datetime_utcnow():
     """tests that setting time and datetime are both possible"""
-    set_datetime = lambda new_time: VirtualTime.set_time(VirtualTime.utc_datetime_to_time(new_time))
-    run_time_function_test(datetime.datetime.utcnow, set_datetime, datetime.timedelta(seconds=100))
+    run_time_function_test(datetime.datetime.utcnow, VirtualTime.set_utc_datetime, datetime.timedelta(seconds=100))
 
 def test_virtual_datetime_tz_now():
     """tests that setting time and datetime are both possible"""
-    set_datetime = lambda new_time: VirtualTime.set_time(VirtualTime.local_datetime_to_time(new_time))
-    run_time_function_test(datetime_tz.datetime_tz.now, set_datetime, datetime.timedelta(seconds=100))
+    run_time_function_test(datetime_tz.datetime_tz.now, VirtualTime.set_local_datetime, datetime.timedelta(seconds=100))
 
 def test_virtual_datetime_tz_utcnow():
     """tests that setting time and datetime are both possible"""
-    set_datetime = lambda new_time: VirtualTime.set_time(VirtualTime.utc_datetime_to_time(new_time))
-    run_time_function_test(datetime_tz.datetime_tz.utcnow, set_datetime, datetime.timedelta(seconds=100))
+    run_time_function_test(datetime_tz.datetime_tz.utcnow, VirtualTime.set_utc_datetime, datetime.timedelta(seconds=100))
 
 
