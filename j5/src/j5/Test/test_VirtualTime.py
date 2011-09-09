@@ -9,6 +9,7 @@ import pickle
 import os
 import subprocess
 import sys
+import decorator
 
 def outside(code_str, *import_modules):
     """Runs a code string in a separate process, pickles the result, and returns it"""
@@ -21,6 +22,14 @@ def outside(code_str, *import_modules):
         raise ValueError(errors)
     return pickle.loads(results)
 
+@decorator.decorator
+def restore_time_after(test_function, *args, **kwargs):
+    try:
+        return test_function(*args, **kwargs)
+    finally:
+        VirtualTime.restore_time()
+
+@restore_time_after
 def check_real_time_function(time_function, code_str, *import_modules):
     """Generic test for a linear time function that can be run by a spawned python process too"""
     first_time = time_function()
@@ -30,6 +39,7 @@ def check_real_time_function(time_function, code_str, *import_modules):
     second_time = time_function()
     assert first_time < outside_time < second_time
 
+@restore_time_after
 def run_time_function_test(time_function, set_function, diff):
     """Generic test for time_function and a set_function that can move the return of that time_function forwards or backwards by diff"""
     first_time = time_function()
@@ -41,6 +51,7 @@ def run_time_function_test(time_function, set_function, diff):
     last_time = time_function()
     assert early_time < first_time < last_time < late_time
 
+@restore_time_after
 def run_time_derived_function_test(derived_function, time_function, set_function, diff, min_diff=None):
     """Generic test for time_function and a set_function that can move the return of that time_function forwards or backwards by diff"""
     first_derived, first_time = derived_function(), time_function()
