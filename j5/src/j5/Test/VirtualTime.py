@@ -9,6 +9,7 @@ import threading
 import types
 import time
 import datetime as datetime_module
+import weakref
 
 _original_time = time.time
 _original_asctime = time.asctime
@@ -19,7 +20,12 @@ _original_strftime = time.strftime
 _original_sleep = time.sleep
 
 _virtual_time_state = threading.Condition()
+_virtual_time_notify_events = weakref.WeakSet()
 _time_offset = 0
+
+def notify_on_change(event):
+    """adds the given event to a list that will be notified if the virtual time changes (does not need to be removed, as it's a weak ref)"""
+    _virtual_time_notify_events.add(event)
 
 def _virtual_time():
     """Overlayed form of time.time() that adds _time_offset"""
@@ -107,6 +113,18 @@ def utc_datetime_to_time(dt):
     """converts a naive utc datetime object to a local time float"""
     return time.mktime(dt.utctimetuple()) + dt.microsecond * 0.000001 - (time.altzone if time.daylight else time.timezone)
 
+def set_offset(new_offset):
+    """Sets the current time offset to the given value"""
+    global _time_offset
+    _virtual_time_state.acquire()
+    try:
+        _time_offset = new_offset
+        _virtual_time_state.notify_all()
+        for event in _virtual_time_notify_events:
+            event.set()
+    finally:
+        _virtual_time_state.release()
+
 def set_time(new_time):
     """Sets the current time to the given time.time()-equivalent value"""
     global _time_offset
@@ -114,6 +132,8 @@ def set_time(new_time):
     try:
         _time_offset = new_time - _original_time()
         _virtual_time_state.notify_all()
+        for event in _virtual_time_notify_events:
+            event.set()
     finally:
         _virtual_time_state.release()
 
@@ -124,6 +144,8 @@ def restore_time():
     try:
         _time_offset = 0
         _virtual_time_state.notify_all()
+        for event in _virtual_time_notify_events:
+            event.set()
     finally:
         _virtual_time_state.release()
 
