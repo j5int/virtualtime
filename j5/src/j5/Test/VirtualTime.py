@@ -11,18 +11,42 @@ _time_lock = threading.RLock()
 _time_offset = 0
 
 _original_time = time.time
+_original_asctime = time.asctime
+_original_ctime = time.ctime
+_original_gmtime = time.gmtime
 _original_localtime = time.localtime
+_original_strftime = time.strftime
 
 def _virtual_time():
     """Overlayed form of time.time() that adds _time_offset"""
     return _original_time() + _time_offset
 
+def _virtual_asctime(when_tuple=None):
+    """Overlayed form of time.asctime() that adds _time_offset"""
+    return _original_asctime(_virtual_localtime() if when_tuple is None else when_tuple)
+
+def _virtual_ctime(when=None):
+    """Overlayed form of time.ctime() that adds _time_offset"""
+    return _original_ctime(_virtual_time() if when is None else when)
+
+def _virtual_gmtime(when=None):
+    """Overlayed form of time.gmtime() that adds _time_offset"""
+    return _original_gmtime(_virtual_time() if when is None else when)
+
 def _virtual_localtime(when=None):
-    """Overlayed form of time.time() that adds _time_offset"""
+    """Overlayed form of time.localtime() that adds _time_offset"""
     return _original_localtime(_virtual_time() if when is None else when)
 
+def _virtual_strftime(format, when_tuple=None):
+    """Overlayed form of time.strftime() that adds _time_offset"""
+    return _original_strftime(format, _virtual_localtime() if when_tuple is None else when_tuple)
+
 time.time = _virtual_time
+time.asctime = _virtual_asctime
+time.ctime = _virtual_ctime
+time.gmtime = _virtual_gmtime
 time.localtime = _virtual_localtime
+time.strftime = _virtual_strftime
 
 _original_datetime_module = datetime_module
 _original_datetime_type = _original_datetime_module.datetime

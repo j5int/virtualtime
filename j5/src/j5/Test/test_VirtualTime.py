@@ -23,9 +23,9 @@ def outside(code_str, *import_modules):
 def check_real_time_function(time_function, code_str, *import_modules):
     """Generic test for a linear time function that can be run by a spawned python process too"""
     first_time = time_function()
-    time.sleep(1.0)
+    time.sleep(0.1)
     outside_time = outside(code_str, *import_modules)
-    time.sleep(1.0)
+    time.sleep(0.1)
     second_time = time_function()
     assert first_time < outside_time < second_time
 
@@ -72,6 +72,25 @@ def test_virtual_time():
 def test_virtual_localtime():
     """tests that we can set time and it affects localtime"""
     run_time_derived_function_test(time.localtime, time.time, VirtualTime.set_time, 100, min_diff=1)
+
+def test_virtual_gmtime():
+    """tests that we can set time and it affects gmtime"""
+    run_time_derived_function_test(time.gmtime, time.time, VirtualTime.set_time, 100, min_diff=1)
+
+# TODO: handle strings not necessarily being increasing on time
+
+def test_virtual_asctime():
+    """tests that we can set time and it affects asctime"""
+    run_time_derived_function_test(time.asctime, time.time, VirtualTime.set_time, 100, min_diff=1)
+
+def test_virtual_ctime():
+    """tests that we can set time and it affects ctime"""
+    run_time_derived_function_test(time.ctime, time.time, VirtualTime.set_time, 100, min_diff=1)
+
+def test_virtual_strftime():
+    """tests that we can set time and it affects ctime"""
+    strftime_iso = lambda: time.strftime("%Y-%m-%d %H:%M:%S")
+    run_time_derived_function_test(strftime_iso, time.time, VirtualTime.set_time, 100, min_diff=1)
 
 def test_virtual_datetime_now():
     """tests that setting time and datetime are both possible"""
