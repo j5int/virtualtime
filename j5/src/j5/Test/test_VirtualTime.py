@@ -23,7 +23,9 @@ def outside(code_str, *import_modules):
 def check_real_time_function(time_function, code_str, *import_modules):
     """Generic test for a linear time function that can be run by a spawned python process too"""
     first_time = time_function()
+    time.sleep(1.0)
     outside_time = outside(code_str, *import_modules)
+    time.sleep(1.0)
     second_time = time_function()
     assert first_time < outside_time < second_time
 
@@ -38,8 +40,21 @@ def run_time_function_test(time_function, set_function, diff):
     last_time = time_function()
     assert early_time < first_time < last_time < late_time
 
+def run_time_derived_function_test(derived_function, time_function, set_function, diff, min_diff=None):
+    """Generic test for time_function and a set_function that can move the return of that time_function forwards or backwards by diff"""
+    first_derived, first_time = derived_function(), time_function()
+    set_function(first_time + diff)
+    late_derived = derived_function()
+    set_function(first_time - diff)
+    early_derived = derived_function()
+    VirtualTime.real_time()
+    if min_diff:
+        time.sleep(min_diff)
+    last_derived = derived_function()
+    assert early_derived < first_derived < last_derived < late_derived
+
 def test_real_time():
-    """tests that real time is still happening in the time module"""
+    """tests that real time is still happening in the time.time() function"""
     check_real_time_function(time.time, "time.time()", "time")
 
 def test_real_datetime_now():
@@ -53,6 +68,10 @@ def test_real_datetime_tz_now():
 def test_virtual_time():
     """tests that we can set time"""
     run_time_function_test(time.time, VirtualTime.set_time, 100)
+
+def test_virtual_localtime():
+    """tests that we can set time and it affects localtime"""
+    run_time_derived_function_test(time.localtime, time.time, VirtualTime.set_time, 100, min_diff=1)
 
 def test_virtual_datetime_now():
     """tests that setting time and datetime are both possible"""

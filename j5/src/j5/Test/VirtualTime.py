@@ -11,12 +11,18 @@ _time_lock = threading.RLock()
 _time_offset = 0
 
 _original_time = time.time
+_original_localtime = time.localtime
 
 def _virtual_time():
     """Overlayed form of time.time() that adds _time_offset"""
     return _original_time() + _time_offset
 
+def _virtual_localtime(when=None):
+    """Overlayed form of time.time() that adds _time_offset"""
+    return _original_localtime(_virtual_time() if when is None else when)
+
 time.time = _virtual_time
+time.localtime = _virtual_localtime
 
 _original_datetime_module = datetime_module
 _original_datetime_type = _original_datetime_module.datetime
