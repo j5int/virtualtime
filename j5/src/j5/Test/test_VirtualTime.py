@@ -182,19 +182,6 @@ def test_many_parallel_sleeps():
     for m in range(LOOPS):
         test_parallel_sleeps()
 
-def fast_forward_time(equivalent_sleep):
-    step_size = 1.0
-    step_wait = 0.05
-    VirtualTime._original_sleep(step_wait)
-    start_time = VirtualTime._original_time()
-    steps, part = divmod(equivalent_sleep, step_size)
-    for step in range(1, int(steps)+1):
-        VirtualTime.set_offset(step*step_size)
-        VirtualTime._original_sleep(step_wait)
-    if part:
-        VirtualTime.set_offset(equivalent_sleep)
-        VirtualTime._original_sleep(step_wait)
-
 class TestTimer:
     """Tests that Timers react appropriately to virtual time setting - derived from j5.Basic.test_Timer"""
     @restore_time_after
@@ -204,7 +191,7 @@ class TestTimer:
         timer = Timer.Timer(tm.timefunc)
         thread = threading.Thread(target=timer.start)
         thread.start()
-        fast_forward_time(3)
+        VirtualTime.fast_forward_time(3)
         timer.stop = True
         assert tm.lasttime is not None
         assert 2 <= tm.ticks <= 3
@@ -219,7 +206,7 @@ class TestTimer:
         timer = Timer.Timer(tm.timefunc, resolution=2)
         thread = threading.Thread(target=timer.start)
         thread.start()
-        fast_forward_time(5)
+        VirtualTime.fast_forward_time(5)
         timer.stop = True
         assert tm.lasttime is not None
         assert 2 <= tm.ticks <= 3
@@ -234,7 +221,7 @@ class TestTimer:
         timer = Timer.Timer(tm.timefunc, args=(True,))
         thread = threading.Thread(target=timer.start)
         thread.start()
-        fast_forward_time(3)
+        VirtualTime.fast_forward_time(3)
         timer.stop = True
         assert tm.lasttime is not None
         thread.join()
@@ -251,7 +238,7 @@ class TestTimer:
         thread.start()
         start_time = VirtualTime._original_time()
         # make sure our sleep happens within the last 6-second pause
-        fast_forward_time(12)
+        VirtualTime.fast_forward_time(12)
         print time.time(), VirtualTime._original_time(), tm.lasttime
         timer.stop = True
         assert tm.lasttime is not None
@@ -270,7 +257,7 @@ class TestTimer:
         timer = Timer.Timer(tm.timefunc, kwargs={"testarg":True})
         thread = threading.Thread(target=timer.start)
         thread.start()
-        fast_forward_time(3)
+        VirtualTime.fast_forward_time(3)
         timer.stop = True
         assert tm.lasttime is not None
         thread.join()

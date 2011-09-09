@@ -125,6 +125,27 @@ def set_offset(new_offset):
     finally:
         _virtual_time_state.release()
 
+def fast_forward_time(delta=None, target=None, step_size=1.0, step_wait=0.01):
+    """Moves through time to the target time or by the given delta amount, at the specified step pace, with small waits at each step"""
+    if (delta is None and target is None) or (delta is not None and target is not None):
+        raise ValueError("Must specify exactly one of delta and target")
+    _virtual_time_state.acquire()
+    try:
+        original_offset = _time_offset
+        if target is not None:
+            delta = target - _original_time()
+        delta -= original_offset
+    finally:
+        _virtual_time_state.release()
+    _original_sleep(step_wait)
+    steps, part = divmod(delta, step_size)
+    for step in range(1, int(steps)+1):
+        set_offset(original_offset + step*step_size)
+        _original_sleep(step_wait)
+    if part:
+        set_offset(original_offset + delta)
+        _original_sleep(step_wait)
+
 def set_time(new_time):
     """Sets the current time to the given time.time()-equivalent value"""
     global _time_offset
