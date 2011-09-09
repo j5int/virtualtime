@@ -1,5 +1,9 @@
 #!/usr/bin/env python
 
+"""Implements a system for simulating a virtual time (based on an offset from the current actual time) so that all Python objects believe it though the actual system time remains the same"""
+
+# TODO: see to what extent it is possible to only patch the functions when a virtual time is in place...
+
 import sys
 import threading
 import types
@@ -15,6 +19,7 @@ _original_ctime = time.ctime
 _original_gmtime = time.gmtime
 _original_localtime = time.localtime
 _original_strftime = time.strftime
+_original_sleep = time.sleep
 
 def _virtual_time():
     """Overlayed form of time.time() that adds _time_offset"""
@@ -40,12 +45,23 @@ def _virtual_strftime(format, when_tuple=None):
     """Overlayed form of time.strftime() that adds _time_offset"""
     return _original_strftime(format, _virtual_localtime() if when_tuple is None else when_tuple)
 
+def _virtual_sleep(seconds):
+    """Overlayed form of time.sleep() that responds to changes to the virtual time"""
+    expected_end = _virtual_time() + seconds
+    while True:
+        remaining = expected_end - _virtual_time()
+        if remaining <= 0:
+            break
+        # TODO: use an event/condition to wake us up here
+        _original_sleep(min(remaining, 0.25))
+
 time.time = _virtual_time
 time.asctime = _virtual_asctime
 time.ctime = _virtual_ctime
 time.gmtime = _virtual_gmtime
 time.localtime = _virtual_localtime
 time.strftime = _virtual_strftime
+time.sleep = _virtual_sleep
 
 _original_datetime_module = datetime_module
 _original_datetime_type = _original_datetime_module.datetime

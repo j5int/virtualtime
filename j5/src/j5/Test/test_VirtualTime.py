@@ -10,6 +10,7 @@ import os
 import subprocess
 import sys
 import decorator
+import threading
 
 def outside(code_str, *import_modules):
     """Runs a code string in a separate process, pickles the result, and returns it"""
@@ -134,5 +135,14 @@ def test_virtual_datetime_tz_now_other_tz():
         tz_now = lambda: datetime_tz.datetime_tz.now().astimezone(tz)
         run_time_derived_function_test(tz_now, datetime_tz.datetime_tz.utcnow, VirtualTime.set_utc_datetime, datetime.timedelta(seconds=100))
 
-# TODO: test scheduler etc
+def test_sleep():
+    """Tests that sleep comes back quicker than normal when time is advanced"""
+    first_time = time.time()
+    sleeper_thread = threading.Thread(target=time.sleep, args=(15,), name="test_sleep_sleeper")
+    sleeper_thread.start()
+    VirtualTime.set_time(first_time + 20)
+    sleeper_thread.join()
+    VirtualTime.restore_time()
+    join_time = time.time()
+    assert join_time - first_time < 0.5
 
