@@ -182,6 +182,9 @@ def test_many_parallel_sleeps():
     for m in range(LOOPS):
         test_parallel_sleeps()
 
+# TODO: test fast_forward_time
+
+# TODO: move to test_Timer
 class TestTimer:
     """Tests that Timers react appropriately to virtual time setting - derived from j5.Basic.test_Timer"""
     @restore_time_after
