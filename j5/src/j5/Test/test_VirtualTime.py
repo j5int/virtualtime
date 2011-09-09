@@ -78,15 +78,22 @@ def test_virtual_gmtime():
     """tests that we can set time and it affects gmtime"""
     run_time_derived_function_test(time.gmtime, time.time, VirtualTime.set_time, 100, min_diff=1)
 
-# TODO: handle strings not necessarily being increasing on time
+def order_preserving_timestr_reslice(s):
+    """Changes the Python format for asctime/ctime 'Sat Jun 06 16:26:11 1998' to '1998-06-06 16:26:11' so that it always increases over time"""
+    month_table = "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+    s = s.replace(" ", "0")
+    y, m, d, t = int(s[-4:]), month_table.index(s[4:7]), int(s[8:10]), s[11:19]
+    return "%04d-%02d-%02d %s" % (y, m, d, t)
 
 def test_virtual_asctime():
     """tests that we can set time and it affects asctime"""
-    run_time_derived_function_test(time.asctime, time.time, VirtualTime.set_time, 100, min_diff=1)
+    order_preserving_asctime = lambda: order_preserving_timestr_reslice(time.asctime())
+    run_time_derived_function_test(order_preserving_asctime, time.time, VirtualTime.set_time, 100, min_diff=1)
 
 def test_virtual_ctime():
     """tests that we can set time and it affects ctime"""
-    run_time_derived_function_test(time.ctime, time.time, VirtualTime.set_time, 100, min_diff=1)
+    order_preserving_ctime = lambda: order_preserving_timestr_reslice(time.ctime())
+    run_time_derived_function_test(order_preserving_ctime, time.time, VirtualTime.set_time, 100, min_diff=1)
 
 def test_virtual_strftime():
     """tests that we can set time and it affects ctime"""
