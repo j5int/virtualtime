@@ -241,8 +241,6 @@ def patch_datetime_module():
     """Patches the datetime module to work on virtual time"""
     _original_datetime_module.datetime = _virtual_datetime_type
 
-# TODO: work out what to do about patching datetime_tz
-
 def unpatch_datetime_module():
     """Restores the datetime module to work on real time"""
     _original_datetime_module.datetime = _original_datetime_type
