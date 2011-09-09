@@ -10,6 +10,7 @@ import types
 import time
 import datetime as datetime_module
 import weakref
+import logging
 
 _original_time = time.time
 _original_asctime = time.asctime
@@ -23,6 +24,7 @@ _virtual_time_state = threading.Condition()
 _virtual_time_notify_events = weakref.WeakSet()
 _fast_forward_delay_events = weakref.WeakSet()
 _time_offset = 0
+MAX_DELAY_TIME = 60
 
 def notify_on_change(event):
     """adds the given event to a set that will be notified if the virtual time changes (does not need to be removed, as it's a weak ref)"""
@@ -152,12 +154,14 @@ def fast_forward_time(delta=None, target=None, step_size=1.0, step_wait=0.01):
     steps, part = divmod(delta, step_size)
     for step in range(1, int(steps)+1):
         for delay_event in _fast_forward_delay_events:
-            delay_event.wait(60)
+            if not delay_event.wait(MAX_DELAY_TIME):
+                logging.warning("A delay_event %r was not set despite waiting %0.2f seconds - continuing to travel through time...", delay_event, MAX_DELAY_TIME)
         set_offset(original_offset + step*step_size)
         _original_sleep(step_wait)
     if part != 0:
         for delay_event in _fast_forward_delay_events:
-            delay_event.wait(60)
+            if not delay_event.wait(MAX_DELAY_TIME):
+                logging.warning("A delay_event %r was not set despite waiting %0.2f seconds - continuing to travel through time...", delay_event, MAX_DELAY_TIME)
         set_offset(original_offset + delta)
         _original_sleep(step_wait)
 
