@@ -213,3 +213,33 @@ def test_fast_forward_time():
     assert 9 <= offsets[6] <= 9.2
     assert offsets[7:] == [0, -0.9, -1.3, 0]
 
+@restore_time_after
+def test_fast_forward_datetime_style():
+    """Test that fast forwarding the time works properly when using datetime-style objects"""
+    event = threading.Event()
+    VirtualTime.notify_on_change(event)
+    offsets = []
+    msg_dict = {'offsets': offsets}
+    catcher_thread = threading.Thread(target=fast_forward_catcher, args=(event, msg_dict))
+    catcher_thread.start()
+    start_time = VirtualTime._original_datetime_now()
+    utc_start_time = datetime_tz.localize(start_time).astimezone(pytz.utc)
+    VirtualTime.fast_forward_timedelta(datetime.timedelta(seconds=1))
+    assert VirtualTime._time_offset == 1
+    VirtualTime.fast_forward_timedelta(datetime.timedelta(seconds=2.5))
+    assert VirtualTime._time_offset == 3.5
+    VirtualTime.fast_forward_local_datetime(target=start_time + datetime.timedelta(seconds=9.1), step_size=datetime.timedelta(seconds=2.0))
+    assert 9 <= VirtualTime._time_offset <= 9.2
+    VirtualTime.fast_forward_utc_datetime(target=utc_start_time + datetime.timedelta(seconds=18.2), step_size=datetime.timedelta(seconds=20.0))
+    assert 18 <= VirtualTime._time_offset <= 18.3
+    VirtualTime.restore_time()
+    VirtualTime.fast_forward_timedelta(datetime.timedelta(seconds=-1.3), step_size=datetime.timedelta(seconds=0.9))
+    VirtualTime.restore_time()
+    msg_dict['stop'] = True
+    event.set()
+    catcher_thread.join()
+    assert offsets[:6] == [1.0, 2.0, 3.0, 3.5, 5.5, 7.5]
+    assert 9 <= offsets[6] <= 9.2
+    assert 18 <= offsets[7] <= 18.3
+    assert offsets[8:] == [0, -0.9, -1.3, 0]
+

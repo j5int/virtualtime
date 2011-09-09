@@ -105,6 +105,11 @@ class datetime(_original_datetime_module.datetime):
 _virtual_datetime_type = datetime
 _original_datetime_module.datetime = _virtual_datetime_type
 
+# NB: This helper function is a copy of j5.Basic.TimeUtils.totalseconds_float, but is here to prevent circular import - changes should be applied to both
+def totalseconds_float(timedelta):
+    """Return the total number of seconds represented by a datetime.timedelta object, including fractions of seconds"""
+    return timedelta.seconds + (timedelta.days * 24 * 60 * 60) + timedelta.microseconds/1000000.0
+
 def local_datetime_to_time(dt):
     """converts a naive datetime object to a local time float"""
     return time.mktime(dt.timetuple()) + dt.microsecond * 0.000001
@@ -147,6 +152,33 @@ def fast_forward_time(delta=None, target=None, step_size=1.0, step_wait=0.01):
     if part != 0:
         set_offset(original_offset + delta)
         _original_sleep(step_wait)
+
+def fast_forward_timedelta(delta, step_size=1.0, step_wait=0.01):
+    """Moves through time by the given datetime.timedelta amount, at the specified step pace, with small waits at each step"""
+    if isinstance(step_size, _original_datetime_module.timedelta):
+        step_size = totalseconds_float(step_size)
+    if isinstance(step_wait, _original_datetime_module.timedelta):
+        step_wait = totalseconds_float(step_wait)
+    delta = totalseconds_float(delta)
+    fast_forward_time(delta=delta, step_size=step_size, step_wait=step_wait)
+
+def fast_forward_local_datetime(target, step_size=1.0, step_wait=0.01):
+    """Moves through time to the target time, at the specified step pace, with small waits at each step"""
+    if isinstance(step_size, _original_datetime_module.timedelta):
+        step_size = totalseconds_float(step_size)
+    if isinstance(step_wait, _original_datetime_module.timedelta):
+        step_wait = totalseconds_float(step_wait)
+    target = local_datetime_to_time(target)
+    fast_forward_time(target=target, step_size=step_size, step_wait=step_wait)
+
+def fast_forward_utc_datetime(target, step_size=1.0, step_wait=0.01):
+    """Moves through time to the target time, at the specified step pace, with small waits at each step"""
+    if isinstance(step_size, _original_datetime_module.timedelta):
+        step_size = totalseconds_float(step_size)
+    if isinstance(step_wait, _original_datetime_module.timedelta):
+        step_wait = totalseconds_float(step_wait)
+    target = utc_datetime_to_time(target)
+    fast_forward_time(target=target, step_size=step_size, step_wait=step_wait)
 
 def set_time(new_time):
     """Sets the current time to the given time.time()-equivalent value"""
