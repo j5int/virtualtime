@@ -13,8 +13,6 @@ import sys
 import decorator
 import threading
 import logging
-from j5.Basic import Timer
-from j5.Basic import test_Timer
 
 def outside(code_str, *import_modules):
     """Runs a code string in a separate process, pickles the result, and returns it"""
@@ -183,98 +181,4 @@ def test_many_parallel_sleeps():
         test_parallel_sleeps()
 
 # TODO: test fast_forward_time
-
-# TODO: move to test_Timer
-class TestTimer:
-    """Tests that Timers react appropriately to virtual time setting - derived from j5.Basic.test_Timer"""
-    @restore_time_after
-    def test_onesec(self):
-        """Test the one second resolution"""
-        tm = test_Timer.TimerDriver()
-        timer = Timer.Timer(tm.timefunc)
-        thread = threading.Thread(target=timer.start)
-        thread.start()
-        VirtualTime.fast_forward_time(3)
-        timer.stop = True
-        assert tm.lasttime is not None
-        assert 2 <= tm.ticks <= 3
-        thread.join()
-        assert not tm.errors
-
-    @Utils.if_long_test_run()
-    @restore_time_after
-    def test_twosec(self):
-        """Test a non one second resolution"""
-        tm = test_Timer.TimerDriver(2)
-        timer = Timer.Timer(tm.timefunc, resolution=2)
-        thread = threading.Thread(target=timer.start)
-        thread.start()
-        VirtualTime.fast_forward_time(5)
-        timer.stop = True
-        assert tm.lasttime is not None
-        assert 2 <= tm.ticks <= 3
-        thread.join()
-        assert not tm.errors
-
-    @Utils.if_long_test_run()
-    @restore_time_after
-    def test_args(self):
-        """Test passing args"""
-        tm = test_Timer.TimerDriver(expectarg=True)
-        timer = Timer.Timer(tm.timefunc, args=(True,))
-        thread = threading.Thread(target=timer.start)
-        thread.start()
-        VirtualTime.fast_forward_time(3)
-        timer.stop = True
-        assert tm.lasttime is not None
-        thread.join()
-        assert not tm.errors
-
-    @Utils.if_long_test_run()
-    @restore_time_after
-    def test_missed(self):
-        """Test missing time events by sleeping in the target function"""
-        tm = test_Timer.TimerDriver(1)
-        timer = Timer.Timer(tm.sleepfunc, args=(iter([0,2,3,0,6]),))
-        logging.getLogger().setLevel(logging.INFO)
-        thread = threading.Thread(target=timer.start)
-        thread.start()
-        start_time = VirtualTime._original_time()
-        # make sure our sleep happens within the last 6-second pause
-        VirtualTime.fast_forward_time(12)
-        print time.time(), VirtualTime._original_time(), tm.lasttime
-        timer.stop = True
-        assert tm.lasttime is not None
-        assert 4 <= tm.ticks <= 5
-        done_time = VirtualTime._original_time()
-        VirtualTime.set_offset(18)
-        thread.join()
-        assert not tm.errors
-        finish_time = VirtualTime._original_time()
-
-    @Utils.if_long_test_run()
-    @restore_time_after
-    def test_kwargs(self):
-        """Test passing kwargs"""
-        tm = test_Timer.TimerDriver(expectarg=True)
-        timer = Timer.Timer(tm.timefunc, kwargs={"testarg":True})
-        thread = threading.Thread(target=timer.start)
-        thread.start()
-        VirtualTime.fast_forward_time(3)
-        timer.stop = True
-        assert tm.lasttime is not None
-        thread.join()
-        assert not tm.errors
-
-    @restore_time_after
-    def test_short_run(self):
-        """Test stopping immediately"""
-        tm = test_Timer.TimerDriver(expectarg=True)
-        timer = Timer.Timer(tm.timefunc, kwargs={"testarg":True}, resolution=10)
-        thread = threading.Thread(target=timer.start)
-        thread.start()
-        timer.stop = True
-        assert tm.lasttime is None
-        thread.join()
-        assert not tm.errors
 
