@@ -102,6 +102,8 @@ class datetime(_original_datetime_module.datetime):
         return _original_datetime_type.__new__(cls, *newargs)
 
 _virtual_datetime_type = datetime
+_virtual_datetime_now = _virtual_datetime_type.now
+_virtual_datetime_utcnow = _virtual_datetime_type.utcnow
 
 # NB: This helper function is a copy of j5.Basic.TimeUtils.totalseconds_float, but is here to prevent circular import - changes should be applied to both
 def totalseconds_float(timedelta):
@@ -255,7 +257,9 @@ def enabled():
         ("time.localtime",    time.localtime, _original_localtime, _virtual_localtime),
         ("time.strftime",     time.strftime,  _original_strftime,  _virtual_strftime),
         ("time.sleep",        time.sleep,     _original_sleep,     _virtual_sleep),
-        ("datetime.datetime", _original_datetime_module.datetime, _original_datetime_type, _virtual_datetime_type),
+        ("datetime.datetime",        _original_datetime_module.datetime,        _original_datetime_type,   _virtual_datetime_type),
+        ("datetime.datetime.now",    _original_datetime_module.datetime.now,    _original_datetime_now,    _virtual_datetime_now),
+        ("datetime.datetime.utcnow", _original_datetime_module.datetime.utcnow, _original_datetime_utcnow, _virtual_datetime_utcnow),
     ]
     check_results = {}
     for check_name, check_function, orig_function, virtual_function in check_functions:
