@@ -68,29 +68,44 @@ def run_time_derived_function_test(derived_function, time_function, set_function
     last_derived = derived_function()
     assert early_derived < first_derived < last_derived < late_derived
 
-def test_real_time():
-    """tests that real time is still happening in the time.time() function"""
-    check_real_time_function(time.time, "time.time()", "time")
+class RunUnpatched(object):
+    @classmethod
+    def setup_class(cls):
+        assert not VirtualTime.enabled()
 
-def test_real_datetime_now():
-    """tests that real time is still happening in the datetime module"""
-    check_real_time_function(datetime.datetime.now, "datetime.datetime.now()", "datetime")
+    @classmethod
+    def teardown_class(cls):
+        assert not VirtualTime.enabled()
 
-def test_real_datetime_tz_now():
-    """tests that real time is still happening in the datetime_tz module"""
-    check_real_time_function(datetime_tz.datetime_tz.now, "j5.OS.datetime_tz.datetime_tz.now()", "j5.OS.datetime_tz")
+class RunPatched(object):
+    @classmethod
+    def setup_class(cls):
+        assert not VirtualTime.enabled()
+        VirtualTime.enable()
 
-def test_virtual_time():
-    """tests that we can set time"""
-    run_time_function_test(time.time, VirtualTime.set_time, 100)
+    @classmethod
+    def teardown_class(cls):
+        VirtualTime.disable()
+        assert not VirtualTime.enabled()
 
-def test_virtual_localtime():
-    """tests that we can set time and it affects localtime"""
-    run_time_derived_function_test(time.localtime, time.time, VirtualTime.set_time, 100, min_diff=1)
+class RealTimeBase(object):
+    def test_time(self):
+        """tests that real time is still happening in the time.time() function"""
+        check_real_time_function(time.time, "time.time()", "time")
 
-def test_virtual_gmtime():
-    """tests that we can set time and it affects gmtime"""
-    run_time_derived_function_test(time.gmtime, time.time, VirtualTime.set_time, 100, min_diff=1)
+    def test_datetime_now(self):
+        """tests that real time is still happening in the datetime module"""
+        check_real_time_function(datetime.datetime.now, "datetime.datetime.now()", "datetime")
+
+    def test_datetime_tz_now(self):
+        """tests that real time is still happening in the datetime_tz module"""
+        check_real_time_function(datetime_tz.datetime_tz.now, "j5.OS.datetime_tz.datetime_tz.now()", "j5.OS.datetime_tz")
+
+class TestUnpatchedRealTime(RealTimeBase, RunUnpatched):
+    pass
+
+class TestPatchedRealTime(RealTimeBase, RunPatched):
+    pass
 
 def order_preserving_timestr_reslice(s):
     """Changes the Python format for asctime/ctime 'Sat Jun 06 16:26:11 1998' to '1998-06-06 16:26:11' so that it always increases over time"""
@@ -99,183 +114,198 @@ def order_preserving_timestr_reslice(s):
     y, m, d, t = int(s[-4:]), month_table.index(s[4:7]), int(s[8:10]), s[11:19]
     return "%04d-%02d-%02d %s" % (y, m, d, t)
 
-def test_virtual_asctime():
-    """tests that we can set time and it affects asctime"""
-    order_preserving_asctime = lambda: order_preserving_timestr_reslice(time.asctime())
-    run_time_derived_function_test(order_preserving_asctime, time.time, VirtualTime.set_time, 100, min_diff=1)
+class TestVirtualTime(RunPatched):
+    def test_time(self):
+        """tests that we can set time"""
+        run_time_function_test(time.time, VirtualTime.set_time, 100)
 
-def test_virtual_ctime():
-    """tests that we can set time and it affects ctime"""
-    order_preserving_ctime = lambda: order_preserving_timestr_reslice(time.ctime())
-    run_time_derived_function_test(order_preserving_ctime, time.time, VirtualTime.set_time, 100, min_diff=1)
+    def test_localtime(self):
+        """tests that we can set time and it affects localtime"""
+        run_time_derived_function_test(time.localtime, time.time, VirtualTime.set_time, 100, min_diff=1)
 
-def test_virtual_strftime():
-    """tests that we can set time and it affects ctime"""
-    strftime_iso = lambda: time.strftime("%Y-%m-%d %H:%M:%S")
-    run_time_derived_function_test(strftime_iso, time.time, VirtualTime.set_time, 100, min_diff=1)
+    def test_gmtime(self):
+        """tests that we can set time and it affects gmtime"""
+        run_time_derived_function_test(time.gmtime, time.time, VirtualTime.set_time, 100, min_diff=1)
 
-def test_virtual_datetime_now():
-    """tests that setting time and datetime are both possible"""
-    run_time_function_test(datetime.datetime.now, VirtualTime.set_local_datetime, datetime.timedelta(seconds=100))
+    def test_asctime(self):
+        """tests that we can set time and it affects asctime"""
+        order_preserving_asctime = lambda: order_preserving_timestr_reslice(time.asctime())
+        run_time_derived_function_test(order_preserving_asctime, time.time, VirtualTime.set_time, 100, min_diff=1)
 
-def test_virtual_datetime_utcnow():
-    """tests that setting time and datetime are both possible"""
-    run_time_function_test(datetime.datetime.utcnow, VirtualTime.set_utc_datetime, datetime.timedelta(seconds=100))
+    def test_ctime(self):
+        """tests that we can set time and it affects ctime"""
+        order_preserving_ctime = lambda: order_preserving_timestr_reslice(time.ctime())
+        run_time_derived_function_test(order_preserving_ctime, time.time, VirtualTime.set_time, 100, min_diff=1)
 
-def test_virtual_datetime_tz_now():
-    """tests that setting time and datetime are both possible"""
-    run_time_function_test(datetime_tz.datetime_tz.now, VirtualTime.set_local_datetime, datetime.timedelta(seconds=100))
+    def test_strftime(self):
+        """tests that we can set time and it affects ctime"""
+        strftime_iso = lambda: time.strftime("%Y-%m-%d %H:%M:%S")
+        run_time_derived_function_test(strftime_iso, time.time, VirtualTime.set_time, 100, min_diff=1)
 
-def test_virtual_datetime_tz_utcnow():
-    """tests that setting time and datetime are both possible"""
-    run_time_function_test(datetime_tz.datetime_tz.utcnow, VirtualTime.set_utc_datetime, datetime.timedelta(seconds=100))
+    def test_datetime_now(self):
+        """tests that setting time and datetime are both possible"""
+        run_time_function_test(datetime.datetime.now, VirtualTime.set_local_datetime, datetime.timedelta(seconds=100))
 
-def test_virtual_datetime_tz_now_other_tz():
-    """tests that setting time and datetime are both possible"""
-    for tz_name in ["Asia/Tokyo", "Europe/London", "America/Chicago"]:
-        tz = pytz.timezone(tz_name)
-        tz_now = lambda: datetime_tz.datetime_tz.now().astimezone(tz)
-        run_time_derived_function_test(tz_now, datetime_tz.datetime_tz.utcnow, VirtualTime.set_utc_datetime, datetime.timedelta(seconds=100))
+    def test_datetime_utcnow(self):
+        """tests that setting time and datetime are both possible"""
+        run_time_function_test(datetime.datetime.utcnow, VirtualTime.set_utc_datetime, datetime.timedelta(seconds=100))
 
-@restore_time_after
-def test_sleep():
-    """Tests that sleep comes back quicker than normal when time is advanced"""
-    first_time = time.time()
-    sleeper_thread = threading.Thread(target=time.sleep, args=(15,), name="test_sleep_sleeper")
-    sleeper_thread.start()
-    VirtualTime.set_time(first_time + 20)
-    sleeper_thread.join()
-    VirtualTime.restore_time()
-    join_time = time.time()
-    assert join_time - first_time < 0.5
+    def test_datetime_tz_now(self):
+        """tests that setting time and datetime are both possible"""
+        run_time_function_test(datetime_tz.datetime_tz.now, VirtualTime.set_local_datetime, datetime.timedelta(seconds=100))
 
-@restore_time_after
-def test_parallel_sleeps():
-    """Tests that sleep comes back quicker than normal when time is advanced, and that this works with lots of threads"""
-    first_time = VirtualTime._original_time()
-    sleeper_threads = {}
-    REPEATS = 100
-    start_waiter_count = len(VirtualTime._virtual_time_state._Condition__waiters)
-    for n in range(REPEATS):
-        sleeper_threads[n] = sleeper_thread = threading.Thread(target=time.sleep, args=(3,), name="test_sleep_sleeper_%d" % n)
+    def test_datetime_tz_utcnow(self):
+        """tests that setting time and datetime are both possible"""
+        run_time_function_test(datetime_tz.datetime_tz.utcnow, VirtualTime.set_utc_datetime, datetime.timedelta(seconds=100))
+
+    def test_datetime_tz_now_other_tz(self):
+        """tests that setting time and datetime are both possible"""
+        for tz_name in ["Asia/Tokyo", "Europe/London", "America/Chicago"]:
+            tz = pytz.timezone(tz_name)
+            tz_now = lambda: datetime_tz.datetime_tz.now().astimezone(tz)
+            run_time_derived_function_test(tz_now, datetime_tz.datetime_tz.utcnow, VirtualTime.set_utc_datetime, datetime.timedelta(seconds=100))
+
+class TestSleep(RunPatched):
+    @restore_time_after
+    def test_sleep(self):
+        """Tests that sleep comes back quicker than normal when time is advanced"""
+        first_time = time.time()
+        sleeper_thread = threading.Thread(target=time.sleep, args=(15,), name="test_sleep_sleeper")
         sleeper_thread.start()
-    # Make sure the sleep calls have actually entered before we move time forward
-    while len(VirtualTime._virtual_time_state._Condition__waiters) < start_waiter_count + REPEATS:
-        VirtualTime._original_sleep(0.001)
-    thread_time = VirtualTime._original_time()
-    setup_duration = thread_time - first_time
-    assert setup_duration < 0.1
-    VirtualTime.set_time(thread_time + 20)
-    for n in range(REPEATS):
-        sleeper_threads[n].join()
-    join_time = VirtualTime._original_time()
-    sleep_duration = join_time - thread_time
-    VirtualTime.restore_time()
-    assert sleep_duration < 0.2
+        VirtualTime.set_time(first_time + 20)
+        sleeper_thread.join()
+        VirtualTime.restore_time()
+        join_time = time.time()
+        assert join_time - first_time < 0.5
 
-@Utils.if_long_test_run()
-def test_many_parallel_sleeps():
-    """Tests that sleep comes back quicker than normal when time is advanced, and that this works with lots of threads when repeated many times"""
-    LOOPS = 100
-    for m in range(LOOPS):
-        test_parallel_sleeps()
+    @restore_time_after
+    def test_parallel_sleeps(self):
+        """Tests that sleep comes back quicker than normal when time is advanced, and that this works with lots of threads"""
+        first_time = VirtualTime._original_time()
+        sleeper_threads = {}
+        REPEATS = 100
+        start_waiter_count = len(VirtualTime._virtual_time_state._Condition__waiters)
+        for n in range(REPEATS):
+            sleeper_threads[n] = sleeper_thread = threading.Thread(target=time.sleep, args=(3,), name="test_sleep_sleeper_%d" % n)
+            sleeper_thread.start()
+        # Make sure the sleep calls have actually entered before we move time forward
+        while len(VirtualTime._virtual_time_state._Condition__waiters) < start_waiter_count + REPEATS:
+            VirtualTime._original_sleep(0.001)
+        thread_time = VirtualTime._original_time()
+        setup_duration = thread_time - first_time
+        assert setup_duration < 0.1
+        VirtualTime.set_time(thread_time + 20)
+        for n in range(REPEATS):
+            sleeper_threads[n].join()
+        join_time = VirtualTime._original_time()
+        sleep_duration = join_time - thread_time
+        VirtualTime.restore_time()
+        assert sleep_duration < 0.2
 
-def fast_forward_catcher(event, msg_dict):
-    offsets = msg_dict['offsets']
-    while "stop" not in msg_dict:
-        event.wait()
-        offsets.append(VirtualTime._time_offset)
-        event.clear()
+    @Utils.if_long_test_run()
+    def test_many_parallel_sleeps(self):
+        """Tests that sleep comes back quicker than normal when time is advanced, and that this works with lots of threads when repeated many times"""
+        LOOPS = 100
+        for m in range(LOOPS):
+            test_parallel_sleeps()
 
-@restore_time_after
-def test_fast_forward_time():
-    """Test that fast forwarding the time works properly"""
-    event = threading.Event()
-    VirtualTime.notify_on_change(event)
-    offsets = []
-    msg_dict = {'offsets': offsets}
-    catcher_thread = threading.Thread(target=fast_forward_catcher, args=(event, msg_dict))
-    catcher_thread.start()
-    start_time = VirtualTime._original_time()
-    VirtualTime.fast_forward_time(1)
-    assert VirtualTime._time_offset == 1
-    VirtualTime.fast_forward_time(2.5)
-    assert VirtualTime._time_offset == 3.5
-    VirtualTime.fast_forward_time(target=start_time + 9.1, step_size=2.0)
-    assert 9 <= VirtualTime._time_offset <= 9.2
-    VirtualTime.restore_time()
-    VirtualTime.fast_forward_time(-1.3, step_size=0.9)
-    VirtualTime.restore_time()
-    msg_dict['stop'] = True
-    event.set()
-    catcher_thread.join()
-    assert offsets[:6] == [1.0, 2.0, 3.0, 3.5, 5.5, 7.5]
-    assert 9 <= offsets[6] <= 9.2
-    assert offsets[7:] == [0, -0.9, -1.3, 0]
+class TestSleep(RunPatched):
+    def fast_forward_catcher(self, event, msg_dict):
+        offsets = msg_dict['offsets']
+        while "stop" not in msg_dict:
+            event.wait()
+            offsets.append(VirtualTime._time_offset)
+            event.clear()
 
-@restore_time_after
-def test_fast_forward_datetime_style():
-    """Test that fast forwarding the time works properly when using datetime-style objects"""
-    event = threading.Event()
-    VirtualTime.notify_on_change(event)
-    offsets = []
-    msg_dict = {'offsets': offsets}
-    catcher_thread = threading.Thread(target=fast_forward_catcher, args=(event, msg_dict))
-    catcher_thread.start()
-    start_time = VirtualTime._original_datetime_now()
-    utc_start_time = datetime_tz.localize(start_time).astimezone(pytz.utc)
-    VirtualTime.fast_forward_timedelta(datetime.timedelta(seconds=1))
-    assert VirtualTime._time_offset == 1
-    VirtualTime.fast_forward_timedelta(datetime.timedelta(seconds=2.5))
-    assert VirtualTime._time_offset == 3.5
-    VirtualTime.fast_forward_local_datetime(target=start_time + datetime.timedelta(seconds=9.1), step_size=datetime.timedelta(seconds=2.0))
-    assert 9 <= VirtualTime._time_offset <= 9.2
-    VirtualTime.fast_forward_utc_datetime(target=utc_start_time + datetime.timedelta(seconds=18.2), step_size=datetime.timedelta(seconds=20.0))
-    assert 18 <= VirtualTime._time_offset <= 18.3
-    VirtualTime.restore_time()
-    VirtualTime.fast_forward_timedelta(datetime.timedelta(seconds=-1.3), step_size=datetime.timedelta(seconds=0.9))
-    VirtualTime.restore_time()
-    msg_dict['stop'] = True
-    event.set()
-    catcher_thread.join()
-    assert offsets[:6] == [1.0, 2.0, 3.0, 3.5, 5.5, 7.5]
-    assert 9 <= offsets[6] <= 9.2
-    assert 18 <= offsets[7] <= 18.3
-    assert offsets[8:] == [0, -0.9, -1.3, 0]
+    @restore_time_after
+    def test_fast_forward_time(self):
+        """Test that fast forwarding the time works properly"""
+        event = threading.Event()
+        VirtualTime.notify_on_change(event)
+        offsets = []
+        msg_dict = {'offsets': offsets}
+        catcher_thread = threading.Thread(target=self.fast_forward_catcher, args=(event, msg_dict))
+        catcher_thread.start()
+        start_time = VirtualTime._original_time()
+        VirtualTime.fast_forward_time(1)
+        assert VirtualTime._time_offset == 1
+        VirtualTime.fast_forward_time(2.5)
+        assert VirtualTime._time_offset == 3.5
+        VirtualTime.fast_forward_time(target=start_time + 9.1, step_size=2.0)
+        assert 9 <= VirtualTime._time_offset <= 9.2
+        VirtualTime.restore_time()
+        VirtualTime.fast_forward_time(-1.3, step_size=0.9)
+        VirtualTime.restore_time()
+        msg_dict['stop'] = True
+        event.set()
+        catcher_thread.join()
+        assert offsets[:6] == [1.0, 2.0, 3.0, 3.5, 5.5, 7.5]
+        assert 9 <= offsets[6] <= 9.2
+        assert offsets[7:] == [0, -0.9, -1.3, 0]
 
-def fast_forward_delayer(notify_event, delay_event, msg_dict):
-    offsets = msg_dict['offsets']
-    positions = msg_dict['positions']
-    while "stop" not in msg_dict:
-        notify_event.wait()
-        offsets.append(VirtualTime._time_offset)
-        position = positions.pop(0)
-        if position == "start_job":
-            VirtualTime.delay_fast_forward_until_set(delay_event)
-            VirtualTime._original_sleep(0.1)
-            delay_event.set()
-        notify_event.clear()
+    @restore_time_after
+    def test_fast_forward_datetime_style(self):
+        """Test that fast forwarding the time works properly when using datetime-style objects"""
+        event = threading.Event()
+        VirtualTime.notify_on_change(event)
+        offsets = []
+        msg_dict = {'offsets': offsets}
+        catcher_thread = threading.Thread(target=self.fast_forward_catcher, args=(event, msg_dict))
+        catcher_thread.start()
+        start_time = VirtualTime._original_datetime_now()
+        utc_start_time = datetime_tz.localize(start_time).astimezone(pytz.utc)
+        VirtualTime.fast_forward_timedelta(datetime.timedelta(seconds=1))
+        assert VirtualTime._time_offset == 1
+        VirtualTime.fast_forward_timedelta(datetime.timedelta(seconds=2.5))
+        assert VirtualTime._time_offset == 3.5
+        VirtualTime.fast_forward_local_datetime(target=start_time + datetime.timedelta(seconds=9.1), step_size=datetime.timedelta(seconds=2.0))
+        assert 9 <= VirtualTime._time_offset <= 9.2
+        VirtualTime.fast_forward_utc_datetime(target=utc_start_time + datetime.timedelta(seconds=18.2), step_size=datetime.timedelta(seconds=20.0))
+        assert 18 <= VirtualTime._time_offset <= 18.3
+        VirtualTime.restore_time()
+        VirtualTime.fast_forward_timedelta(datetime.timedelta(seconds=-1.3), step_size=datetime.timedelta(seconds=0.9))
+        VirtualTime.restore_time()
+        msg_dict['stop'] = True
+        event.set()
+        catcher_thread.join()
+        assert offsets[:6] == [1.0, 2.0, 3.0, 3.5, 5.5, 7.5]
+        assert 9 <= offsets[6] <= 9.2
+        assert 18 <= offsets[7] <= 18.3
+        assert offsets[8:] == [0, -0.9, -1.3, 0]
 
-@restore_time_after
-def test_fast_forward_delay():
-    """Test that fast forwarding the time works properly"""
-    notify_event = threading.Event()
-    VirtualTime.notify_on_change(notify_event)
-    delay_event = threading.Event()
-    offsets = []
-    positions = ["start_job", "complete_job"]
-    msg_dict = {'offsets': offsets, 'positions': positions}
-    catcher_thread = threading.Thread(target=fast_forward_delayer, args=(notify_event, delay_event, msg_dict))
-    catcher_thread.start()
-    start_time = VirtualTime._original_time()
-    VirtualTime.fast_forward_time(2)
-    assert VirtualTime._time_offset == 2
-    VirtualTime.restore_time()
-    msg_dict['stop'] = True
-    notify_event.set()
-    catcher_thread.join()
-    completion_time = VirtualTime._original_time()
-    assert offsets == [1.0, 2.0, 0]
-    assert completion_time - start_time < 0.2
-    assert delay_event.is_set()
+    def fast_forward_delayer(self, notify_event, delay_event, msg_dict):
+        offsets = msg_dict['offsets']
+        positions = msg_dict['positions']
+        while "stop" not in msg_dict:
+            notify_event.wait()
+            offsets.append(VirtualTime._time_offset)
+            position = positions.pop(0)
+            if position == "start_job":
+                VirtualTime.delay_fast_forward_until_set(delay_event)
+                VirtualTime._original_sleep(0.1)
+                delay_event.set()
+            notify_event.clear()
+
+    @restore_time_after
+    def test_fast_forward_delay(self):
+        """Test that fast forwarding the time works properly"""
+        notify_event = threading.Event()
+        VirtualTime.notify_on_change(notify_event)
+        delay_event = threading.Event()
+        offsets = []
+        positions = ["start_job", "complete_job"]
+        msg_dict = {'offsets': offsets, 'positions': positions}
+        catcher_thread = threading.Thread(target=self.fast_forward_delayer, args=(notify_event, delay_event, msg_dict))
+        catcher_thread.start()
+        start_time = VirtualTime._original_time()
+        VirtualTime.fast_forward_time(2)
+        assert VirtualTime._time_offset == 2
+        VirtualTime.restore_time()
+        msg_dict['stop'] = True
+        notify_event.set()
+        catcher_thread.join()
+        completion_time = VirtualTime._original_time()
+        assert offsets == [1.0, 2.0, 0]
+        assert completion_time - start_time < 0.2
+        assert delay_event.is_set()
 

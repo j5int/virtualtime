@@ -2,8 +2,6 @@
 
 """Implements a system for simulating a virtual time (based on an offset from the current actual time) so that all Python objects believe it though the actual system time remains the same"""
 
-# TODO: see to what extent it is possible to only patch the functions when a virtual time is in place...
-
 import sys
 import threading
 import types
@@ -21,6 +19,8 @@ _original_strftime = time.strftime
 _original_sleep = time.sleep
 
 _virtual_time_state = threading.Condition()
+# private variable that tracks whether virtual time is enabled - only to be used internally and locked with _virtual_time_state
+__virtual_time_enabled = 0
 _virtual_time_notify_events = weakref.WeakSet()
 _fast_forward_delay_events = weakref.WeakSet()
 _time_offset = 0
@@ -75,14 +75,6 @@ def _virtual_sleep(seconds):
         else:
             _original_sleep(0.001)
 
-time.time = _virtual_time
-time.asctime = _virtual_asctime
-time.ctime = _virtual_ctime
-time.gmtime = _virtual_gmtime
-time.localtime = _virtual_localtime
-time.strftime = _virtual_strftime
-time.sleep = _virtual_sleep
-
 _original_datetime_module = datetime_module
 _original_datetime_type = _original_datetime_module.datetime
 _original_datetime_now = _original_datetime_type.now
@@ -110,7 +102,6 @@ class datetime(_original_datetime_module.datetime):
         return _original_datetime_type.__new__(cls, *newargs)
 
 _virtual_datetime_type = datetime
-_original_datetime_module.datetime = _virtual_datetime_type
 
 # NB: This helper function is a copy of j5.Basic.TimeUtils.totalseconds_float, but is here to prevent circular import - changes should be applied to both
 def totalseconds_float(timedelta):
@@ -224,3 +215,86 @@ def set_utc_datetime(dt):
     """Sets the current time using the given naive utc datetime object"""
     set_time(utc_datetime_to_time(dt))
 
+# Functions to patch and unpatch date/time modules
+
+def patch_time_module():
+    """Patches the time module to work on virtual time"""
+    time.time = _virtual_time
+    time.asctime = _virtual_asctime
+    time.ctime = _virtual_ctime
+    time.gmtime = _virtual_gmtime
+    time.localtime = _virtual_localtime
+    time.strftime = _virtual_strftime
+    time.sleep = _virtual_sleep
+
+def unpatch_time_module():
+    """Restores the time module to use original functions"""
+    time.time = _original_time
+    time.asctime = _original_asctime
+    time.ctime = _original_ctime
+    time.gmtime = _original_gmtime
+    time.localtime = _original_localtime
+    time.strftime = _original_strftime
+    time.sleep = _original_sleep
+
+def patch_datetime_module():
+    """Patches the datetime module to work on virtual time"""
+    _original_datetime_module.datetime = _virtual_datetime_type
+
+# TODO: work out what to do about patching datetime_tz
+
+def unpatch_datetime_module():
+    """Restores the datetime module to work on real time"""
+    _original_datetime_module.datetime = _original_datetime_type
+
+def enabled():
+    """Checks whether virtual time has been enabled by examing modules - returns a ValueError if in an inconsistent state"""
+    check_functions = [
+        ("time.time",         time.time,      _original_time,      _virtual_time),
+        ("time.asctime",      time.asctime,   _original_asctime,   _virtual_asctime),
+        ("time.ctime",        time.ctime,     _original_ctime,     _virtual_ctime),
+        ("time.gmtime",       time.gmtime,    _original_gmtime,    _virtual_gmtime),
+        ("time.localtime",    time.localtime, _original_localtime, _virtual_localtime),
+        ("time.strftime",     time.strftime,  _original_strftime,  _virtual_strftime),
+        ("time.sleep",        time.sleep,     _original_sleep,     _virtual_sleep),
+        ("datetime.datetime", _original_datetime_module.datetime, _original_datetime_type, _virtual_datetime_type),
+    ]
+    check_results = {}
+    for check_name, check_function, orig_function, virtual_function in check_functions:
+        check_results[check_name] = "orig" if check_function == orig_function else ("virtual" if check_function == virtual_function else "unexpected")
+    combined_results = set(check_results.values())
+    if "unexpected" in combined_results:
+        logging.critical("Unexpected functions in virtual time patching: %s", ", ".join(check_name for check_name, check_status in check_results.items() if check_status == 'unexpected'))
+    if len(combined_results) > 1:
+        logging.critical("Inconsistent state of virtual time patching: %r", check_results)
+        raise ValueError("Inconsistent state of virtual time patching")
+    state = list(combined_results)[0]
+    if state == "unexpected":
+        raise ValueError("Unexpected functions in virtual time patching")
+    return state == 'virtual'
+
+def enable():
+    """Enables virtual time (actually increments the number of times it's been enabled)"""
+    global __virtual_time_enabled
+    _virtual_time_state.acquire()
+    try:
+        __virtual_time_enabled += 1
+        if __virtual_time_enabled > 0:
+            logging.info("Virtual Time enabled %d times; patching modules")
+            patch_time_module()
+            patch_datetime_module()
+    finally:
+        _virtual_time_state.release()
+
+def disable():
+    """Disables virtual time (actually decrements the number of times it's been enabled, and disables if 0)"""
+    global __virtual_time_enabled
+    _virtual_time_state.acquire()
+    try:
+        __virtual_time_enabled -= 1
+        if __virtual_time_enabled <= 0:
+            logging.info("Virtual Time disabled %d times; unpatching modules")
+            unpatch_time_module()
+            unpatch_datetime_module()
+    finally:
+        _virtual_time_state.release()
