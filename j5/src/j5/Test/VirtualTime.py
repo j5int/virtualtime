@@ -133,8 +133,7 @@ def fast_forward_time(delta=None, target=None, step_size=1.0, step_wait=0.01):
     try:
         original_offset = _time_offset
         if target is not None:
-            delta = target - _original_time()
-        delta -= original_offset
+            delta = target - original_offset - _original_time()
     finally:
         _virtual_time_state.release()
     _original_sleep(step_wait)
