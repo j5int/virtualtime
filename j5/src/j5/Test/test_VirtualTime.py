@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 from j5.Test import VirtualTime
+from j5.Test import Utils
 from j5.OS import datetime_tz
 import datetime
 import time
@@ -146,18 +147,33 @@ def test_sleep():
     join_time = time.time()
     assert join_time - first_time < 0.5
 
-def test_many_sleep():
+def test_parallel_sleeps():
     """Tests that sleep comes back quicker than normal when time is advanced, and that this works with lots of threads"""
-    first_time = time.time()
+    first_time = VirtualTime._original_time()
     sleeper_threads = {}
-    REPEATS = 200
+    REPEATS = 100
+    start_waiter_count = len(VirtualTime._virtual_time_state._Condition__waiters)
     for n in range(REPEATS):
         sleeper_threads[n] = sleeper_thread = threading.Thread(target=time.sleep, args=(3,), name="test_sleep_sleeper_%d" % n)
         sleeper_thread.start()
-    VirtualTime.set_time(first_time + 20)
+    # Make sure the sleep calls have actually entered before we move time forward
+    while len(VirtualTime._virtual_time_state._Condition__waiters) < start_waiter_count + REPEATS:
+        VirtualTime._original_sleep(0.001)
+    thread_time = VirtualTime._original_time()
+    setup_duration = thread_time - first_time
+    assert setup_duration < 0.1
+    VirtualTime.set_time(thread_time + 20)
     for n in range(REPEATS):
         sleeper_threads[n].join()
+    join_time = VirtualTime._original_time()
+    sleep_duration = join_time - thread_time
     VirtualTime.restore_time()
-    join_time = time.time()
-    assert join_time - first_time < 0.5
+    assert sleep_duration < 0.2
+
+@Utils.if_long_test_run()
+def test_many_parallel_sleeps():
+    """Tests that sleep comes back quicker than normal when time is advanced, and that this works with lots of threads when repeated many times"""
+    LOOPS = 100
+    for m in range(LOOPS):
+        test_parallel_sleeps()
 
