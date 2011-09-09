@@ -21,11 +21,16 @@ _original_sleep = time.sleep
 
 _virtual_time_state = threading.Condition()
 _virtual_time_notify_events = weakref.WeakSet()
+_fast_forward_delay_events = weakref.WeakSet()
 _time_offset = 0
 
 def notify_on_change(event):
-    """adds the given event to a list that will be notified if the virtual time changes (does not need to be removed, as it's a weak ref)"""
+    """adds the given event to a set that will be notified if the virtual time changes (does not need to be removed, as it's a weak ref)"""
     _virtual_time_notify_events.add(event)
+
+def delay_fast_forward_until_set(event):
+    """adds the given event to a set that will delay fast_forwards until they are set (does not need to be removed, as it's a weak ref)"""
+    _fast_forward_delay_events.add(event)
 
 def _virtual_time():
     """Overlayed form of time.time() that adds _time_offset"""
@@ -145,11 +150,14 @@ def fast_forward_time(delta=None, target=None, step_size=1.0, step_wait=0.01):
     if delta < 0:
         step_size = -step_size
     steps, part = divmod(delta, step_size)
-    # TODO: adjust this so that if scheduled tasks run, it waits for them to complete before charging forth
     for step in range(1, int(steps)+1):
+        for delay_event in _fast_forward_delay_events:
+            delay_event.wait(60)
         set_offset(original_offset + step*step_size)
         _original_sleep(step_wait)
     if part != 0:
+        for delay_event in _fast_forward_delay_events:
+            delay_event.wait(60)
         set_offset(original_offset + delta)
         _original_sleep(step_wait)
 

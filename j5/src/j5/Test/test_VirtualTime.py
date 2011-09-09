@@ -243,3 +243,39 @@ def test_fast_forward_datetime_style():
     assert 18 <= offsets[7] <= 18.3
     assert offsets[8:] == [0, -0.9, -1.3, 0]
 
+def fast_forward_delayer(notify_event, delay_event, msg_dict):
+    offsets = msg_dict['offsets']
+    positions = msg_dict['positions']
+    while "stop" not in msg_dict:
+        notify_event.wait()
+        offsets.append(VirtualTime._time_offset)
+        position = positions.pop(0)
+        if position == "start_job":
+            VirtualTime.delay_fast_forward_until_set(delay_event)
+            VirtualTime._original_sleep(0.1)
+            delay_event.set()
+        notify_event.clear()
+
+@restore_time_after
+def test_fast_forward_delay():
+    """Test that fast forwarding the time works properly"""
+    notify_event = threading.Event()
+    VirtualTime.notify_on_change(notify_event)
+    delay_event = threading.Event()
+    offsets = []
+    positions = ["start_job", "complete_job"]
+    msg_dict = {'offsets': offsets, 'positions': positions}
+    catcher_thread = threading.Thread(target=fast_forward_delayer, args=(notify_event, delay_event, msg_dict))
+    catcher_thread.start()
+    start_time = VirtualTime._original_time()
+    VirtualTime.fast_forward_time(2)
+    assert VirtualTime._time_offset == 2
+    VirtualTime.restore_time()
+    msg_dict['stop'] = True
+    notify_event.set()
+    catcher_thread.join()
+    completion_time = VirtualTime._original_time()
+    assert offsets == [1.0, 2.0, 0]
+    assert completion_time - start_time < 0.2
+    assert delay_event.is_set()
+
