@@ -180,5 +180,36 @@ def test_many_parallel_sleeps():
     for m in range(LOOPS):
         test_parallel_sleeps()
 
-# TODO: test fast_forward_time
+def fast_forward_catcher(event, msg_dict):
+    offsets = msg_dict['offsets']
+    while "stop" not in msg_dict:
+        event.wait()
+        offsets.append(VirtualTime._time_offset)
+        event.clear()
+
+@restore_time_after
+def test_fast_forward_time():
+    """Test that fast forwarding the time works properly"""
+    event = threading.Event()
+    VirtualTime.notify_on_change(event)
+    offsets = []
+    msg_dict = {'offsets': offsets}
+    catcher_thread = threading.Thread(target=fast_forward_catcher, args=(event, msg_dict))
+    catcher_thread.start()
+    start_time = VirtualTime._original_time()
+    VirtualTime.fast_forward_time(1)
+    assert VirtualTime._time_offset == 1
+    VirtualTime.fast_forward_time(2.5)
+    assert VirtualTime._time_offset == 3.5
+    VirtualTime.fast_forward_time(target=start_time + 9.1, step_size=2.0)
+    assert 9 <= VirtualTime._time_offset <= 9.2
+    VirtualTime.restore_time()
+    VirtualTime.fast_forward_time(-1.3, step_size=0.9)
+    VirtualTime.restore_time()
+    msg_dict['stop'] = True
+    event.set()
+    catcher_thread.join()
+    assert offsets[:6] == [1.0, 2.0, 3.0, 3.5, 5.5, 7.5]
+    assert 9 <= offsets[6] <= 9.2
+    assert offsets[7:] == [0, -0.9, -1.3, 0]
 

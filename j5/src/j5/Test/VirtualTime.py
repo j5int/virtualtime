@@ -137,12 +137,14 @@ def fast_forward_time(delta=None, target=None, step_size=1.0, step_wait=0.01):
     finally:
         _virtual_time_state.release()
     _original_sleep(step_wait)
-    # TODO: adjust this so that if scheduled tasks run, it waits for them to complete before charging forth
+    if delta < 0:
+        step_size = -step_size
     steps, part = divmod(delta, step_size)
+    # TODO: adjust this so that if scheduled tasks run, it waits for them to complete before charging forth
     for step in range(1, int(steps)+1):
         set_offset(original_offset + step*step_size)
         _original_sleep(step_wait)
-    if part:
+    if part != 0:
         set_offset(original_offset + delta)
         _original_sleep(step_wait)
 
