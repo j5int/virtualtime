@@ -146,3 +146,18 @@ def test_sleep():
     join_time = time.time()
     assert join_time - first_time < 0.5
 
+def test_many_sleep():
+    """Tests that sleep comes back quicker than normal when time is advanced, and that this works with lots of threads"""
+    first_time = time.time()
+    sleeper_threads = {}
+    REPEATS = 200
+    for n in range(REPEATS):
+        sleeper_threads[n] = sleeper_thread = threading.Thread(target=time.sleep, args=(3,), name="test_sleep_sleeper_%d" % n)
+        sleeper_thread.start()
+    VirtualTime.set_time(first_time + 20)
+    for n in range(REPEATS):
+        sleeper_threads[n].join()
+    VirtualTime.restore_time()
+    join_time = time.time()
+    assert join_time - first_time < 0.5
+

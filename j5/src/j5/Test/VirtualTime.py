@@ -10,9 +10,6 @@ import types
 import time
 import datetime as datetime_module
 
-_time_lock = threading.RLock()
-_time_offset = 0
-
 _original_time = time.time
 _original_asctime = time.asctime
 _original_ctime = time.ctime
@@ -20,6 +17,9 @@ _original_gmtime = time.gmtime
 _original_localtime = time.localtime
 _original_strftime = time.strftime
 _original_sleep = time.sleep
+
+_virtual_time_state = threading.Condition()
+_time_offset = 0
 
 def _virtual_time():
     """Overlayed form of time.time() that adds _time_offset"""
@@ -52,8 +52,15 @@ def _virtual_sleep(seconds):
         remaining = expected_end - _virtual_time()
         if remaining <= 0:
             break
-        # TODO: use an event/condition to wake us up here
-        _original_sleep(min(remaining, 0.25))
+        # At least limit the fallout to a reasonably busy wait to get the lock
+        if _virtual_time_state.acquire(False):
+            try:
+                remaining = expected_end - _virtual_time()
+                _virtual_time_state.wait(remaining)
+            finally:
+                _virtual_time_state.release()
+        else:
+            _original_sleep(0.001)
 
 time.time = _virtual_time
 time.asctime = _virtual_asctime
@@ -103,20 +110,22 @@ def utc_datetime_to_time(dt):
 def set_time(new_time):
     """Sets the current time to the given time.time()-equivalent value"""
     global _time_offset
-    _time_lock.acquire()
+    _virtual_time_state.acquire()
     try:
         _time_offset = new_time - _original_time()
+        _virtual_time_state.notify_all()
     finally:
-        _time_lock.release()
+        _virtual_time_state.release()
 
 def restore_time():
     """Reverts to real time operation"""
     global _time_offset
-    _time_lock.acquire()
+    _virtual_time_state.acquire()
     try:
         _time_offset = 0
+        _virtual_time_state.notify_all()
     finally:
-        _time_lock.release()
+        _virtual_time_state.release()
 
 def set_local_datetime(dt):
     """Sets the current time using the given naive local datetime object"""
