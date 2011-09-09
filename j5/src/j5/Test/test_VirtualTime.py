@@ -4,6 +4,7 @@ from j5.Test import VirtualTime
 from j5.OS import datetime_tz
 import datetime
 import time
+import pytz
 import pickle
 import os
 import subprocess
@@ -36,7 +37,7 @@ def run_time_function_test(time_function, set_function, diff):
     late_time = time_function()
     set_function(first_time - diff)
     early_time = time_function()
-    VirtualTime.real_time()
+    VirtualTime.restore_time()
     last_time = time_function()
     assert early_time < first_time < last_time < late_time
 
@@ -47,7 +48,7 @@ def run_time_derived_function_test(derived_function, time_function, set_function
     late_derived = derived_function()
     set_function(first_time - diff)
     early_derived = derived_function()
-    VirtualTime.real_time()
+    VirtualTime.restore_time()
     if min_diff:
         time.sleep(min_diff)
     last_derived = derived_function()
@@ -108,4 +109,12 @@ def test_virtual_datetime_tz_utcnow():
     """tests that setting time and datetime are both possible"""
     run_time_function_test(datetime_tz.datetime_tz.utcnow, VirtualTime.set_utc_datetime, datetime.timedelta(seconds=100))
 
+def test_virtual_datetime_tz_now_other_tz():
+    """tests that setting time and datetime are both possible"""
+    for tz_name in ["Asia/Tokyo", "Europe/London", "America/Chicago"]:
+        tz = pytz.timezone(tz_name)
+        tz_now = lambda: datetime_tz.datetime_tz.now().astimezone(tz)
+        run_time_derived_function_test(tz_now, datetime_tz.datetime_tz.utcnow, VirtualTime.set_utc_datetime, datetime.timedelta(seconds=100))
+
+# TODO: test scheduler etc
 

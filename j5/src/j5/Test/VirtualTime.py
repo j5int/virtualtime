@@ -5,7 +5,6 @@ import threading
 import types
 import time
 import datetime as datetime_module
-# from j5.OS import datetime_tz as datetime_tz_module
 
 _time_lock = threading.RLock()
 _time_offset = 0
@@ -94,7 +93,7 @@ def set_time(new_time):
     finally:
         _time_lock.release()
 
-def real_time():
+def restore_time():
     """Reverts to real time operation"""
     global _time_offset
     _time_lock.acquire()
@@ -110,5 +109,4 @@ def set_local_datetime(dt):
 def set_utc_datetime(dt):
     """Sets the current time using the given naive utc datetime object"""
     set_time(utc_datetime_to_time(dt))
-
 
