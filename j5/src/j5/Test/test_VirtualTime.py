@@ -43,8 +43,9 @@ def check_real_time_function(time_function, code_str, *import_modules):
     assert first_time < outside_time < second_time
 
 @restore_time_after
-def run_time_function_test(time_function, set_function, diff):
-    """Generic test for time_function and a set_function that can move the return of that time_function forwards or backwards by diff"""
+def run_time_function_test(time_function, set_function, diff, enabled=True):
+    """Generic test for time_function and a set_function that can move the return of that time_function forwards or backwards by diff
+    Checks that the right thing will happen when VirtualTime enabled/disabled"""
     first_time = time_function()
     set_function(first_time + diff)
     late_time = time_function()
@@ -52,11 +53,15 @@ def run_time_function_test(time_function, set_function, diff):
     early_time = time_function()
     VirtualTime.restore_time()
     last_time = time_function()
-    assert early_time < first_time < last_time < late_time
+    if enabled:
+        assert early_time < first_time < last_time < late_time
+    else:
+        assert first_time <= late_time <= early_time <= last_time
 
 @restore_time_after
-def run_time_derived_function_test(derived_function, time_function, set_function, diff, min_diff=None):
-    """Generic test for time_function and a set_function that can move the return of that time_function forwards or backwards by diff"""
+def run_time_derived_function_test(derived_function, time_function, set_function, diff, min_diff=None, enabled=True):
+    """Generic test for time_function and a set_function that can move the return of that time_function forwards or backwards by diff
+    Checks that the right thing will happen when VirtualTime enabled/disabled"""
     first_derived, first_time = derived_function(), time_function()
     set_function(first_time + diff)
     late_derived = derived_function()
@@ -66,46 +71,10 @@ def run_time_derived_function_test(derived_function, time_function, set_function
     if min_diff:
         time.sleep(min_diff)
     last_derived = derived_function()
-    assert early_derived < first_derived < last_derived < late_derived
-
-class RunUnpatched(object):
-    @classmethod
-    def setup_class(cls):
-        assert not VirtualTime.enabled()
-
-    @classmethod
-    def teardown_class(cls):
-        assert not VirtualTime.enabled()
-
-class RunPatched(object):
-    @classmethod
-    def setup_class(cls):
-        assert not VirtualTime.enabled()
-        VirtualTime.enable()
-
-    @classmethod
-    def teardown_class(cls):
-        VirtualTime.disable()
-        assert not VirtualTime.enabled()
-
-class RealTimeBase(object):
-    def test_time(self):
-        """tests that real time is still happening in the time.time() function"""
-        check_real_time_function(time.time, "time.time()", "time")
-
-    def test_datetime_now(self):
-        """tests that real time is still happening in the datetime module"""
-        check_real_time_function(datetime.datetime.now, "datetime.datetime.now()", "datetime")
-
-    def test_datetime_tz_now(self):
-        """tests that real time is still happening in the datetime_tz module"""
-        check_real_time_function(datetime_tz.datetime_tz.now, "j5.OS.datetime_tz.datetime_tz.now()", "j5.OS.datetime_tz")
-
-class TestUnpatchedRealTime(RealTimeBase, RunUnpatched):
-    pass
-
-class TestPatchedRealTime(RealTimeBase, RunPatched):
-    pass
+    if enabled:
+        assert early_derived < first_derived < last_derived < late_derived
+    else:
+        assert first_derived <= late_derived <= early_derived <= last_derived
 
 def order_preserving_timestr_reslice(s):
     """Changes the Python format for asctime/ctime 'Sat Jun 06 16:26:11 1998' to '1998-06-06 16:26:11' so that it always increases over time"""
@@ -114,69 +83,157 @@ def order_preserving_timestr_reslice(s):
     y, m, d, t = int(s[-4:]), month_table.index(s[4:7]), int(s[8:10]), s[11:19]
     return "%04d-%02d-%02d %s" % (y, m, d, t)
 
-class TestVirtualTime(RunPatched):
+class RunUnpatched(object):
+    """Base class for tests that should all be run with VirtualTime disabled"""
+    @classmethod
+    def setup_class(cls):
+        """Ensure that VirtualTime is disabled when running these tests"""
+        cls.virtual_time_enabled = VirtualTime.enabled()
+        assert not VirtualTime.enabled()
+
+    @classmethod
+    def teardown_class(cls):
+        """Ensure that VirtualTime is disabled after running these tests"""
+        del cls.virtual_time_enabled
+        assert not VirtualTime.enabled()
+
+class RunPatched(object):
+    """Base class for tests that should all be run with VirtualTime enabled"""
+    @classmethod
+    def setup_class(cls):
+        """Ensure that VirtualTime is disabled before, then enabled when running these tests"""
+        assert not VirtualTime.enabled()
+        VirtualTime.enable()
+        cls.virtual_time_enabled = VirtualTime.enabled()
+        assert cls.virtual_time_enabled
+
+    @classmethod
+    def teardown_class(cls):
+        """Ensure that VirtualTime was enabled when running these tests, but disabled after"""
+        del cls.virtual_time_enabled
+        assert VirtualTime.enabled()
+        VirtualTime.disable()
+        assert not VirtualTime.enabled()
+
+class RealTimeBase(object):
+    """Tests for real time functions"""
+    def test_time(self):
+        """tests that real time is still happening in the time.time() function"""
+        check_real_time_function(time.time, "time.time()", "time")
+
+    def test_datetime_now(self):
+        """tests that real time is still happening in the datetime module"""
+        check_real_time_function(datetime.datetime.now, "datetime.datetime.now()", "datetime")
+
+    def test_datetime_utcnow(self):
+        """tests that real time is still happening in the datetime module"""
+        check_real_time_function(datetime.datetime.utcnow, "datetime.datetime.utcnow()", "datetime")
+
+    def test_datetime_tz_now(self):
+        """tests that real time is still happening in the datetime_tz module"""
+        check_real_time_function(datetime_tz.datetime_tz.now, "j5.OS.datetime_tz.datetime_tz.now()", "j5.OS.datetime_tz")
+
+    def test_datetime_tz_utcnow(self):
+        """tests that real time is still happening in the datetime_tz module"""
+        check_real_time_function(datetime_tz.datetime_tz.utcnow, "j5.OS.datetime_tz.datetime_tz.utcnow()", "j5.OS.datetime_tz")
+
+class TestUnpatchedRealTime(RealTimeBase, RunUnpatched):
+    """Tests for real time functions when VirtualTime is disabled"""
+
+class TestPatchedRealTime(RealTimeBase, RunPatched):
+    """Tests for real time functions when VirtualTime is enabled"""
+
+class VirtualTimeBase(object):
+    """Tests for virtual time functions when VirtualTime is enabled"""
     def test_time(self):
         """tests that we can set time"""
-        run_time_function_test(time.time, VirtualTime.set_time, 100)
+        run_time_function_test(time.time, VirtualTime.set_time, 100, enabled=self.virtual_time_enabled)
 
     def test_localtime(self):
         """tests that we can set time and it affects localtime"""
-        run_time_derived_function_test(time.localtime, time.time, VirtualTime.set_time, 100, min_diff=1)
+        run_time_derived_function_test(time.localtime, time.time, VirtualTime.set_time, 100, min_diff=1, enabled=self.virtual_time_enabled)
 
     def test_gmtime(self):
         """tests that we can set time and it affects gmtime"""
-        run_time_derived_function_test(time.gmtime, time.time, VirtualTime.set_time, 100, min_diff=1)
+        run_time_derived_function_test(time.gmtime, time.time, VirtualTime.set_time, 100, min_diff=1, enabled=self.virtual_time_enabled)
 
     def test_asctime(self):
         """tests that we can set time and it affects asctime"""
         order_preserving_asctime = lambda: order_preserving_timestr_reslice(time.asctime())
-        run_time_derived_function_test(order_preserving_asctime, time.time, VirtualTime.set_time, 100, min_diff=1)
+        run_time_derived_function_test(order_preserving_asctime, time.time, VirtualTime.set_time, 100, min_diff=1, enabled=self.virtual_time_enabled)
 
     def test_ctime(self):
         """tests that we can set time and it affects ctime"""
         order_preserving_ctime = lambda: order_preserving_timestr_reslice(time.ctime())
-        run_time_derived_function_test(order_preserving_ctime, time.time, VirtualTime.set_time, 100, min_diff=1)
+        run_time_derived_function_test(order_preserving_ctime, time.time, VirtualTime.set_time, 100, min_diff=1, enabled=self.virtual_time_enabled)
 
     def test_strftime(self):
         """tests that we can set time and it affects ctime"""
         strftime_iso = lambda: time.strftime("%Y-%m-%d %H:%M:%S")
-        run_time_derived_function_test(strftime_iso, time.time, VirtualTime.set_time, 100, min_diff=1)
+        run_time_derived_function_test(strftime_iso, time.time, VirtualTime.set_time, 100, min_diff=1, enabled=self.virtual_time_enabled)
 
     def test_datetime_now(self):
         """tests that setting time and datetime are both possible"""
-        run_time_function_test(datetime.datetime.now, VirtualTime.set_local_datetime, datetime.timedelta(seconds=100))
+        run_time_function_test(datetime.datetime.now, VirtualTime.set_local_datetime, datetime.timedelta(seconds=100), enabled=self.virtual_time_enabled)
 
     def test_datetime_utcnow(self):
         """tests that setting time and datetime are both possible"""
-        run_time_function_test(datetime.datetime.utcnow, VirtualTime.set_utc_datetime, datetime.timedelta(seconds=100))
+        run_time_function_test(datetime.datetime.utcnow, VirtualTime.set_utc_datetime, datetime.timedelta(seconds=100), enabled=self.virtual_time_enabled)
 
     def test_datetime_tz_now(self):
         """tests that setting time and datetime are both possible"""
-        run_time_function_test(datetime_tz.datetime_tz.now, VirtualTime.set_local_datetime, datetime.timedelta(seconds=100))
+        run_time_function_test(datetime_tz.datetime_tz.now, VirtualTime.set_local_datetime, datetime.timedelta(seconds=100), enabled=self.virtual_time_enabled)
 
     def test_datetime_tz_utcnow(self):
         """tests that setting time and datetime are both possible"""
-        run_time_function_test(datetime_tz.datetime_tz.utcnow, VirtualTime.set_utc_datetime, datetime.timedelta(seconds=100))
+        run_time_function_test(datetime_tz.datetime_tz.utcnow, VirtualTime.set_utc_datetime, datetime.timedelta(seconds=100), enabled=self.virtual_time_enabled)
 
     def test_datetime_tz_now_other_tz(self):
         """tests that setting time and datetime are both possible"""
         for tz_name in ["Asia/Tokyo", "Europe/London", "America/Chicago"]:
             tz = pytz.timezone(tz_name)
             tz_now = lambda: datetime_tz.datetime_tz.now().astimezone(tz)
-            run_time_derived_function_test(tz_now, datetime_tz.datetime_tz.utcnow, VirtualTime.set_utc_datetime, datetime.timedelta(seconds=100))
+            run_time_derived_function_test(tz_now, datetime_tz.datetime_tz.utcnow, VirtualTime.set_utc_datetime, datetime.timedelta(seconds=100), enabled=self.virtual_time_enabled)
 
-class TestSleep(RunPatched):
+class TestDisabledVirtualTime(VirtualTimeBase, RunUnpatched):
+    """Tests that virtual time functions have no effect when VirtualTime is disabled"""
+
+class TestVirtualTime(VirtualTimeBase, RunPatched):
+    """Tests that virtual time functions have no effect when VirtualTime is disabled"""
+
+class SleepBase(object):
+    def setup_method(self, method):
+        self.initial_waiter_count = len(VirtualTime._virtual_time_state._Condition__waiters)
+
+    def teardown_method(self, method):
+        del self.initial_waiter_count
+
+    def wait_sleep_started(self, sleep_count, max_wait=5.0):
+        """Waits for the given number of sleeps to start before continuing (with a timeout)"""
+        if not self.virtual_time_enabled:
+            return
+        start_wait_check = VirtualTime._original_time()
+        while len(VirtualTime._virtual_time_state._Condition__waiters) < self.initial_waiter_count + sleep_count:
+            VirtualTime._original_sleep(0.001)
+            delay = VirtualTime._original_time() - start_wait_check
+            if delay > max_wait:
+                raise ValueError("Not enough sleepers started waiting in time...")
+
     @restore_time_after
     def test_sleep(self):
         """Tests that sleep comes back quicker than normal when time is advanced"""
         first_time = time.time()
-        sleeper_thread = threading.Thread(target=time.sleep, args=(15,), name="test_sleep_sleeper")
+        sleeper_thread = threading.Thread(target=time.sleep, args=(3,), name="test_sleep_sleeper")
         sleeper_thread.start()
-        VirtualTime.set_time(first_time + 20)
+        self.wait_sleep_started(1, 0.2)
+        VirtualTime.set_time(first_time + 5)
         sleeper_thread.join()
         VirtualTime.restore_time()
         join_time = time.time()
-        assert join_time - first_time < 0.5
+        if self.virtual_time_enabled:
+            assert join_time - first_time < 0.5
+        else:
+            assert join_time - first_time >= 3
 
     @restore_time_after
     def test_parallel_sleeps(self):
@@ -184,13 +241,10 @@ class TestSleep(RunPatched):
         first_time = VirtualTime._original_time()
         sleeper_threads = {}
         REPEATS = 100
-        start_waiter_count = len(VirtualTime._virtual_time_state._Condition__waiters)
         for n in range(REPEATS):
             sleeper_threads[n] = sleeper_thread = threading.Thread(target=time.sleep, args=(3,), name="test_sleep_sleeper_%d" % n)
             sleeper_thread.start()
-        # Make sure the sleep calls have actually entered before we move time forward
-        while len(VirtualTime._virtual_time_state._Condition__waiters) < start_waiter_count + REPEATS:
-            VirtualTime._original_sleep(0.001)
+        self.wait_sleep_started(REPEATS, 0.5)
         thread_time = VirtualTime._original_time()
         setup_duration = thread_time - first_time
         assert setup_duration < 0.1
@@ -200,16 +254,23 @@ class TestSleep(RunPatched):
         join_time = VirtualTime._original_time()
         sleep_duration = join_time - thread_time
         VirtualTime.restore_time()
-        assert sleep_duration < 0.2
+        if self.virtual_time_enabled:
+            assert sleep_duration < 0.2
+        else:
+            assert sleep_duration >= 3
 
+class TestDisabledSleep(SleepBase, RunUnpatched):
+    pass
+
+class TestSleep(SleepBase, RunPatched):
     @Utils.if_long_test_run()
     def test_many_parallel_sleeps(self):
         """Tests that sleep comes back quicker than normal when time is advanced, and that this works with lots of threads when repeated many times"""
         LOOPS = 100
         for m in range(LOOPS):
-            test_parallel_sleeps()
+            self.test_parallel_sleeps()
 
-class TestSleep(RunPatched):
+class TestFastForward(RunPatched):
     def fast_forward_catcher(self, event, msg_dict):
         offsets = msg_dict['offsets']
         while "stop" not in msg_dict:
@@ -293,7 +354,7 @@ class TestSleep(RunPatched):
         VirtualTime.notify_on_change(notify_event)
         delay_event = threading.Event()
         offsets = []
-        positions = ["start_job", "complete_job"]
+        positions = ["start_job", ""]
         msg_dict = {'offsets': offsets, 'positions': positions}
         catcher_thread = threading.Thread(target=self.fast_forward_delayer, args=(notify_event, delay_event, msg_dict))
         catcher_thread.start()
