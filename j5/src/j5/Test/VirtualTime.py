@@ -47,9 +47,13 @@ class datetime(_original_datetime_module.datetime):
 _virtual_datetime_type = datetime
 _original_datetime_module.datetime = _virtual_datetime_type
 
-def datetime_to_time(dt):
-    """converts a datetime object to a local time float"""
+def local_datetime_to_time(dt):
+    """converts a naive datetime object to a local time float"""
     return time.mktime(dt.timetuple()) + dt.microsecond * 0.000001
+
+def utc_datetime_to_time(dt):
+    """converts a naive utc datetime object to a local time float"""
+    return time.mktime(dt.utctimetuple()) + dt.microsecond * 0.000001 - (time.altzone if time.daylight else time.timezone)
 
 def set_time(new_time):
     """Sets the current time to the given time.time()-equivalent value"""
