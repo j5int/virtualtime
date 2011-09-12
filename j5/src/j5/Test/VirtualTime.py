@@ -8,6 +8,14 @@ import types
 import time
 import datetime as datetime_module
 import weakref
+if hasattr(weakref, 'WeakSet'):
+    WeakSet = weakref.WeakSet
+else:
+    # python2.6 doesn't have WeakSet; we only use it to add and interate, so make a plan
+    class WeakSet(weakref.WeakKeyDictionary):
+        def add(self, item):
+            self[item] = True
+
 import logging
 
 _original_time = time.time
@@ -21,8 +29,8 @@ _original_sleep = time.sleep
 _virtual_time_state = threading.Condition()
 # private variable that tracks whether virtual time is enabled - only to be used internally and locked with _virtual_time_state
 __virtual_time_enabled = 0
-_virtual_time_notify_events = weakref.WeakSet()
-_fast_forward_delay_events = weakref.WeakSet()
+_virtual_time_notify_events = WeakSet()
+_fast_forward_delay_events = WeakSet()
 _time_offset = 0
 MAX_DELAY_TIME = 60
 
