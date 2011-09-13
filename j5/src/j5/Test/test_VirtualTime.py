@@ -115,6 +115,14 @@ class RunPatched(object):
         VirtualTime.disable()
         assert not VirtualTime.enabled()
 
+    def setup_method(self, method):
+        """Restores normal time to ensure tests start cleanly"""
+        VirtualTime.restore_time()
+
+    def teardown_method(self, method):
+        """Restores normal time after the method has finished"""
+        VirtualTime.restore_time()
+
 class RealTimeBase(object):
     """Tests for real time functions"""
     def test_time(self):
