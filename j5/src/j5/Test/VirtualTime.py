@@ -30,9 +30,10 @@ _virtual_time_state = threading.Condition()
 # private variable that tracks whether virtual time is enabled - only to be used internally and locked with _virtual_time_state
 __virtual_time_enabled = 0
 _virtual_time_notify_events = WeakSet()
+# TODO: add locking on this
 _fast_forward_delay_events = WeakSet()
 _time_offset = 0
-MAX_DELAY_TIME = 60
+MAX_DELAY_TIME = 60.0
 
 def notify_on_change(event):
     """adds the given event to a set that will be notified if the virtual time changes (does not need to be removed, as it's a weak ref)"""
@@ -154,13 +155,13 @@ def fast_forward_time(delta=None, target=None, step_size=1.0, step_wait=0.01):
         step_size = -step_size
     steps, part = divmod(delta, step_size)
     for step in range(1, int(steps)+1):
-        for delay_event in _fast_forward_delay_events:
+        for delay_event in list(_fast_forward_delay_events):
             if not delay_event.wait(MAX_DELAY_TIME):
                 logging.warning("A delay_event %r was not set despite waiting %0.2f seconds - continuing to travel through time...", delay_event, MAX_DELAY_TIME)
         set_offset(original_offset + step*step_size)
         _original_sleep(step_wait)
     if part != 0:
-        for delay_event in _fast_forward_delay_events:
+        for delay_event in list(_fast_forward_delay_events):
             if not delay_event.wait(MAX_DELAY_TIME):
                 logging.warning("A delay_event %r was not set despite waiting %0.2f seconds - continuing to travel through time...", delay_event, MAX_DELAY_TIME)
         set_offset(original_offset + delta)
@@ -269,6 +270,13 @@ def enabled():
         ("datetime.datetime.now",    _original_datetime_module.datetime.now,    _original_datetime_now,    _virtual_datetime_now),
         ("datetime.datetime.utcnow", _original_datetime_module.datetime.utcnow, _original_datetime_utcnow, _virtual_datetime_utcnow),
     ]
+    constant_functions = [
+        ("threading._time",   threading._time,   _original_time),
+        ("threading._sleep",   threading._sleep, _original_sleep),
+    ]
+    for check_name, check_function, correct_function in constant_functions:
+        if check_function != correct_function:
+            raise ValueError("%s should be %s but has been patched as %s" % (check_name, check_function, correct_function))
     check_results = {}
     for check_name, check_function, orig_function, virtual_function in check_functions:
         check_results[check_name] = "orig" if check_function == orig_function else ("virtual" if check_function == virtual_function else "unexpected")
