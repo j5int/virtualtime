@@ -18,7 +18,9 @@ else:
 
 import logging
 
-TIME_CHANGE_LOGLEVEL = logging.CRITICAL
+TIME_CHANGE_LOG_LEVEL = logging.CRITICAL
+MAX_CALLBACK_TIME = 1.0
+MAX_DELAY_TIME = 60.0
 
 _original_time = time.time
 _original_asctime = time.asctime
@@ -35,7 +37,6 @@ _virtual_time_notify_events = WeakSet()
 _virtual_time_callback_events = WeakSet()
 _fast_forward_delay_events = WeakSet()
 _time_offset = 0
-MAX_DELAY_TIME = 60.0
 
 def notify_on_change(event):
     """adds the given event to a set that will be notified if the virtual time changes (does not need to be removed, as it's a weak ref)"""
@@ -186,7 +187,8 @@ def set_offset(new_offset):
     finally:
         _virtual_time_state.release()
     for event in callback_events:
-        event.wait()
+        if not event.wait(MAX_CALLBACK_TIME):
+            logging.warning("VirtualTime callback was not received in %r seconds at %r", MAX_CALLBACK_TIME, _original_datetime_now())
 
 def set_time(new_time):
     """Sets the current time to the given time.time()-equivalent value"""
@@ -205,7 +207,8 @@ def set_time(new_time):
     finally:
         _virtual_time_state.release()
     for event in callback_events:
-        event.wait()
+        if not event.wait(MAX_CALLBACK_TIME):
+            logging.warning("VirtualTime callback was not received in %r seconds at %r", MAX_CALLBACK_TIME, _original_datetime_now())
 
 def restore_time():
     """Reverts to real time operation"""
@@ -224,7 +227,8 @@ def restore_time():
     finally:
         _virtual_time_state.release()
     for event in callback_events:
-        event.wait()
+        if not event.wait(MAX_CALLBACK_TIME):
+            logging.warning("VirtualTime callback was not received in %r seconds at %r", MAX_CALLBACK_TIME, _original_datetime_now())
 
 def set_local_datetime(dt):
     """Sets the current time using the given naive local datetime object"""
