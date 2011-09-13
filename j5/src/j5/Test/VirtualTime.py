@@ -18,6 +18,8 @@ else:
 
 import logging
 
+TIME_CHANGE_LOGLEVEL = logging.CRITICAL
+
 _original_time = time.time
 _original_asctime = time.asctime
 _original_ctime = time.ctime
@@ -174,7 +176,7 @@ def set_offset(new_offset):
     try:
         original_offset = _time_offset
         _time_offset = new_offset
-        logging.critical("VirtualTime offset adjusted from %r to %r at %r", original_offset, _time_offset, _original_datetime_now())
+        logging.log(TIME_CHANGE_LOG_LEVEL, "VirtualTime offset adjusted from %r to %r at %r", original_offset, _time_offset, _original_datetime_now())
         callback_events = list(_virtual_time_callback_events)
         for event in callback_events:
             event.clear()
@@ -193,7 +195,7 @@ def set_time(new_time):
     try:
         original_offset = _time_offset
         _time_offset = new_time - _original_time()
-        logging.critical("VirtualTime offset adjusted from %r to %r at %r", original_offset, _time_offset, _original_datetime_now())
+        logging.log(TIME_CHANGE_LOG_LEVEL, "VirtualTime offset adjusted from %r to %r at %r", original_offset, _time_offset, _original_datetime_now())
         callback_events = list(_virtual_time_callback_events)
         for event in callback_events:
             event.clear()
@@ -212,7 +214,7 @@ def restore_time():
     try:
         original_offset = _time_offset
         _time_offset = 0
-        logging.critical("VirtualTime offset restored from %r to %r at %r", original_offset, _time_offset, _original_datetime_now())
+        logging.log(TIME_CHANGE_LOG_LEVEL, "VirtualTime offset restored from %r to %r at %r", original_offset, _time_offset, _original_datetime_now())
         callback_events = list(_virtual_time_callback_events)
         for event in callback_events:
             event.clear()
