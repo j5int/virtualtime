@@ -186,6 +186,52 @@ def set_offset(new_offset):
     for event in callback_events:
         event.wait()
 
+def set_time(new_time):
+    """Sets the current time to the given time.time()-equivalent value"""
+    global _time_offset
+    _virtual_time_state.acquire()
+    try:
+        original_offset = _time_offset
+        _time_offset = new_time - _original_time()
+        logging.critical("VirtualTime offset adjusted from %r to %r at %r", original_offset, _time_offset, _original_datetime_now())
+        callback_events = list(_virtual_time_callback_events)
+        for event in callback_events:
+            event.clear()
+        _virtual_time_state.notify_all()
+        for event in _virtual_time_notify_events:
+            event.set()
+    finally:
+        _virtual_time_state.release()
+    for event in callback_events:
+        event.wait()
+
+def restore_time():
+    """Reverts to real time operation"""
+    global _time_offset
+    _virtual_time_state.acquire()
+    try:
+        original_offset = _item_offset
+        _time_offset = 0
+        logging.critical("VirtualTime offset restored from %r to %r at %r", original_offset, _time_offset, _original_datetime_now())
+        callback_events = list(_virtual_time_callback_events)
+        for event in callback_events:
+            event.clear()
+        _virtual_time_state.notify_all()
+        for event in _virtual_time_notify_events:
+            event.set()
+    finally:
+        _virtual_time_state.release()
+    for event in callback_events:
+        event.wait()
+
+def set_local_datetime(dt):
+    """Sets the current time using the given naive local datetime object"""
+    set_time(local_datetime_to_time(dt))
+
+def set_utc_datetime(dt):
+    """Sets the current time using the given naive utc datetime object"""
+    set_time(utc_datetime_to_time(dt))
+
 def fast_forward_time(delta=None, target=None, step_size=1.0, step_wait=0.01):
     """Moves through time to the target time or by the given delta amount, at the specified step pace, with small waits at each step"""
     if (delta is None and target is None) or (delta is not None and target is not None):
@@ -250,52 +296,6 @@ def fast_forward_utc_datetime(target, step_size=1.0, step_wait=0.01):
         step_wait = totalseconds_float(step_wait)
     target = utc_datetime_to_time(target)
     fast_forward_time(target=target, step_size=step_size, step_wait=step_wait)
-
-def set_time(new_time):
-    """Sets the current time to the given time.time()-equivalent value"""
-    global _time_offset
-    _virtual_time_state.acquire()
-    try:
-        original_offset = _time_offset
-        _time_offset = new_time - _original_time()
-        logging.critical("VirtualTime offset adjusted from %r to %r at %r", original_offset, _time_offset, _original_datetime_now())
-        callback_events = list(_virtual_time_callback_events)
-        for event in callback_events:
-            event.clear()
-        _virtual_time_state.notify_all()
-        for event in _virtual_time_notify_events:
-            event.set()
-    finally:
-        _virtual_time_state.release()
-    for event in callback_events:
-        event.wait()
-
-def restore_time():
-    """Reverts to real time operation"""
-    global _time_offset
-    _virtual_time_state.acquire()
-    try:
-        original_offset = _item_offset
-        _time_offset = 0
-        logging.critical("VirtualTime offset restored from %r to %r at %r", original_offset, _time_offset, _original_datetime_now())
-        callback_events = list(_virtual_time_callback_events)
-        for event in callback_events:
-            event.clear()
-        _virtual_time_state.notify_all()
-        for event in _virtual_time_notify_events:
-            event.set()
-    finally:
-        _virtual_time_state.release()
-    for event in callback_events:
-        event.wait()
-
-def set_local_datetime(dt):
-    """Sets the current time using the given naive local datetime object"""
-    set_time(local_datetime_to_time(dt))
-
-def set_utc_datetime(dt):
-    """Sets the current time using the given naive utc datetime object"""
-    set_time(utc_datetime_to_time(dt))
 
 # Functions to patch and unpatch date/time modules
 
