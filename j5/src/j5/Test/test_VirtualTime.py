@@ -380,6 +380,24 @@ class TestFastForward(RunPatched):
         assert 9 <= offsets[6] <= 9.2
         assert offsets[7:] == [0, -0.9, -1.3, 0]
 
+    @Utils.if_long_test_run()
+    @restore_time_after
+    def test_fast_forward_time_long(self):
+        """Test that fast forwarding the time a long way works properly"""
+        event = threading.Event()
+        VirtualTime.notify_on_change(event)
+        offsets = []
+        msg_dict = {'offsets': offsets}
+        catcher_thread = threading.Thread(target=self.fast_forward_catcher, args=(event, msg_dict))
+        catcher_thread.start()
+        start_time = VirtualTime._original_time()
+        VirtualTime.fast_forward_time(1000, step_size=1)
+        VirtualTime.restore_time()
+        msg_dict['stop'] = True
+        event.set()
+        catcher_thread.join()
+        assert offsets == range(1, 1001) + [0]
+
     @restore_time_after
     def test_fast_forward_datetime_style(self):
         """Test that fast forwarding the time works properly when using datetime-style objects"""
