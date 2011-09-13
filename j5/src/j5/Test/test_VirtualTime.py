@@ -151,6 +151,28 @@ class TestUnpatchedRealTime(RealTimeBase, RunUnpatched):
 class TestPatchedRealTime(RealTimeBase, RunPatched):
     """Tests for real time functions when VirtualTime is enabled"""
 
+class TestTimeNotification(RunPatched):
+    """Tests the different notification events that happen when VirtualTime is adjusted"""
+    def test_notify_on_change(self):
+        e = threading.Event()
+        VirtualTime.notify_on_change(e)
+        start_time = VirtualTime._original_time()
+        VirtualTime.set_offset(1)
+        assert e.wait(0.1)
+        e.clear()
+        offset_time = VirtualTime._original_time()
+        assert offset_time - start_time < 0.1
+        VirtualTime.set_time(0)
+        assert e.wait(0.1)
+        e.clear()
+        set_time = VirtualTime._original_time()
+        assert set_time - offset_time < 0.1
+        VirtualTime.restore_time()
+        assert e.wait(0.1)
+        e.clear()
+        restore_time = VirtualTime._original_time()
+        assert restore_time - set_time < 0.1
+
 class VirtualTimeBase(object):
     """Tests for virtual time functions when VirtualTime is enabled"""
     def test_time(self):
