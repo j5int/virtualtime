@@ -29,8 +29,9 @@ _original_sleep = time.sleep
 _virtual_time_state = threading.Condition()
 # private variable that tracks whether virtual time is enabled - only to be used internally and locked with _virtual_time_state
 __virtual_time_enabled = 0
+# TODO: add locking on these
 _virtual_time_notify_events = WeakSet()
-# TODO: add locking on this
+_virtual_time_callback_events = WeakSet()
 _fast_forward_delay_events = WeakSet()
 _time_offset = 0
 MAX_DELAY_TIME = 60.0
@@ -38,6 +39,10 @@ MAX_DELAY_TIME = 60.0
 def notify_on_change(event):
     """adds the given event to a set that will be notified if the virtual time changes (does not need to be removed, as it's a weak ref)"""
     _virtual_time_notify_events.add(event)
+
+def wait_for_callback_on_change(event):
+    """clear this event before notifying on change, and wait for it to be set before returning from the time change"""
+    _virtual_time_callback_events.add(event)
 
 def delay_fast_forward_until_set(event):
     """adds the given event to a set that will delay fast_forwards until they are set (does not need to be removed, as it's a weak ref)"""
@@ -133,11 +138,16 @@ def set_offset(new_offset):
     _virtual_time_state.acquire()
     try:
         _time_offset = new_offset
+        callback_events = list(_virtual_time_callback_events)
+        for event in callback_events:
+            event.clear()
         _virtual_time_state.notify_all()
         for event in _virtual_time_notify_events:
             event.set()
     finally:
         _virtual_time_state.release()
+    for event in callback_events:
+        event.wait()
 
 def fast_forward_time(delta=None, target=None, step_size=1.0, step_wait=0.01):
     """Moves through time to the target time or by the given delta amount, at the specified step pace, with small waits at each step"""
@@ -200,11 +210,16 @@ def set_time(new_time):
     _virtual_time_state.acquire()
     try:
         _time_offset = new_time - _original_time()
+        callback_events = list(_virtual_time_callback_events)
+        for event in callback_events:
+            event.clear()
         _virtual_time_state.notify_all()
         for event in _virtual_time_notify_events:
             event.set()
     finally:
         _virtual_time_state.release()
+    for event in callback_events:
+        event.wait()
 
 def restore_time():
     """Reverts to real time operation"""
@@ -212,11 +227,16 @@ def restore_time():
     _virtual_time_state.acquire()
     try:
         _time_offset = 0
+        callback_events = list(_virtual_time_callback_events)
+        for event in callback_events:
+            event.clear()
         _virtual_time_state.notify_all()
         for event in _virtual_time_notify_events:
             event.set()
     finally:
         _virtual_time_state.release()
+    for event in callback_events:
+        event.wait()
 
 def set_local_datetime(dt):
     """Sets the current time using the given naive local datetime object"""

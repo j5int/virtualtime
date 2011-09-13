@@ -154,24 +154,70 @@ class TestPatchedRealTime(RealTimeBase, RunPatched):
 class TestTimeNotification(RunPatched):
     """Tests the different notification events that happen when VirtualTime is adjusted"""
     def test_notify_on_change(self):
-        e = threading.Event()
-        VirtualTime.notify_on_change(e)
+        self.notify_event = threading.Event()
+        VirtualTime.notify_on_change(self.notify_event)
         start_time = VirtualTime._original_time()
         VirtualTime.set_offset(1)
-        assert e.wait(0.1)
-        e.clear()
+        assert self.notify_event.wait(0.1)
+        self.notify_event.clear()
         offset_time = VirtualTime._original_time()
         assert offset_time - start_time < 0.1
         VirtualTime.set_time(0)
-        assert e.wait(0.1)
-        e.clear()
+        assert self.notify_event.wait(0.1)
+        self.notify_event.clear()
         set_time = VirtualTime._original_time()
         assert set_time - offset_time < 0.1
         VirtualTime.restore_time()
-        assert e.wait(0.1)
-        e.clear()
+        assert self.notify_event.wait(0.1)
+        self.notify_event.clear()
         restore_time = VirtualTime._original_time()
         assert restore_time - set_time < 0.1
+
+    def callback_thread(self):
+        """Repeatedly sets the target event whilst recording the offsets"""
+        while not self.callback_stop:
+            if self.notify_event.wait(5):
+                if self.callback_stop:
+                    break
+                self.callback_logs.append((VirtualTime._original_time(), VirtualTime._time_offset, self.callback_event.is_set()))
+                self.notify_event.clear()
+                self.callback_event.set()
+            elif not self.callback_stop:
+                self.callback_missed.append((VirtualTime._original_time(), VirtualTime._time_offset))
+
+    def test_callback(self):
+        self.notify_event = threading.Event()
+        VirtualTime.notify_on_change(self.notify_event)
+        self.callback_stop = False
+        self.callback_event = threading.Event()
+        self.callback_logs = []
+        self.callback_missed = []
+        ct = threading.Thread(target=self.callback_thread)
+        ct.start()
+        VirtualTime.wait_for_callback_on_change(self.callback_event)
+        try:
+            start_time = VirtualTime._original_time()
+            VirtualTime.set_offset(1)
+            assert len(self.callback_logs) == 1 and not self.callback_missed
+            assert self.callback_logs[0][1:] == (1, False)
+            offset_time = VirtualTime._original_time()
+            assert offset_time - start_time < 0.1
+            VirtualTime.set_time(0)
+            assert len(self.callback_logs) == 2 and not self.callback_missed
+            assert self.callback_logs[1][1] < -start_time + 1 and self.callback_logs[1][2] is False
+            set_time = VirtualTime._original_time()
+            assert set_time - offset_time < 0.1
+            VirtualTime.restore_time()
+            assert len(self.callback_logs) == 3 and not self.callback_missed
+            assert self.callback_logs[1][1] < -start_time + 1 and self.callback_logs[1][2] is False
+            restore_time = VirtualTime._original_time()
+            assert restore_time - set_time < 0.1
+        finally:
+            # deleting this should ensure it drops out of the weak set and doesn't hang things up later...
+            del self.callback_event
+            self.callback_stop = True
+            self.notify_event.set()
+            ct.join()
 
 class VirtualTimeBase(object):
     """Tests for virtual time functions when VirtualTime is enabled"""
