@@ -43,6 +43,14 @@ def notify_on_change(event):
     finally:
         _virtual_time_state.release()
 
+def undo_notify_on_change(event):
+    """discards the given event from the set that will be notified if the virtual time changes (does not need to be removed, as it's a weak ref)"""
+    _virtual_time_state.acquire()
+    try:
+        _virtual_time_notify_events.discard(event)
+    finally:
+        _virtual_time_state.release()
+
 def wait_for_callback_on_change(event):
     """clear this event before notifying on change, and wait for it to be set before returning from the time change"""
     _virtual_time_state.acquire()
@@ -51,11 +59,27 @@ def wait_for_callback_on_change(event):
     finally:
         _virtual_time_state.release()
 
+def undo_wait_for_callback_on_change(event):
+    """discard this event from the callback set"""
+    _virtual_time_state.acquire()
+    try:
+        _virtual_time_callback_events.discard(event)
+    finally:
+        _virtual_time_state.release()
+
 def delay_fast_forward_until_set(event):
     """adds the given event to a set that will delay fast_forwards until they are set (does not need to be removed, as it's a weak ref)"""
     _virtual_time_state.acquire()
     try:
         _fast_forward_delay_events.add(event)
+    finally:
+        _virtual_time_state.release()
+
+def undo_delay_fast_forward_until_set(event):
+    """discards the given event from the set that will delay fast_forwards until they are set (does not need to be removed, as it's a weak ref)"""
+    _virtual_time_state.acquire()
+    try:
+        _fast_forward_delay_events.discard(event)
     finally:
         _virtual_time_state.release()
 
