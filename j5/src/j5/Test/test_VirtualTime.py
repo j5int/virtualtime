@@ -348,7 +348,7 @@ class TestFastForward(RunPatched):
         while "stop" not in msg_dict:
             notify_event.wait()
             offsets.append(VirtualTime._time_offset)
-            position = positions.pop(0)
+            position = positions.pop(0) if positions else ""
             if position == "start_job":
                 VirtualTime.delay_fast_forward_until_set(delay_event)
                 VirtualTime._original_sleep(0.1)
