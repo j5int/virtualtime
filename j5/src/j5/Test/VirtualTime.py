@@ -29,7 +29,6 @@ _original_sleep = time.sleep
 _virtual_time_state = threading.Condition()
 # private variable that tracks whether virtual time is enabled - only to be used internally and locked with _virtual_time_state
 __virtual_time_enabled = 0
-# TODO: add locking on these
 _virtual_time_notify_events = WeakSet()
 _virtual_time_callback_events = WeakSet()
 _fast_forward_delay_events = WeakSet()
@@ -38,15 +37,27 @@ MAX_DELAY_TIME = 60.0
 
 def notify_on_change(event):
     """adds the given event to a set that will be notified if the virtual time changes (does not need to be removed, as it's a weak ref)"""
-    _virtual_time_notify_events.add(event)
+    _virtual_time_state.acquire()
+    try:
+        _virtual_time_notify_events.add(event)
+    finally:
+        _virtual_time_state.release()
 
 def wait_for_callback_on_change(event):
     """clear this event before notifying on change, and wait for it to be set before returning from the time change"""
-    _virtual_time_callback_events.add(event)
+    _virtual_time_state.acquire()
+    try:
+        _virtual_time_callback_events.add(event)
+    finally:
+        _virtual_time_state.release()
 
 def delay_fast_forward_until_set(event):
     """adds the given event to a set that will delay fast_forwards until they are set (does not need to be removed, as it's a weak ref)"""
-    _fast_forward_delay_events.add(event)
+    _virtual_time_state.acquire()
+    try:
+        _fast_forward_delay_events.add(event)
+    finally:
+        _virtual_time_state.release()
 
 def _virtual_time():
     """Overlayed form of time.time() that adds _time_offset"""
@@ -165,13 +176,23 @@ def fast_forward_time(delta=None, target=None, step_size=1.0, step_wait=0.01):
         step_size = -step_size
     steps, part = divmod(delta, step_size)
     for step in range(1, int(steps)+1):
-        for delay_event in list(_fast_forward_delay_events):
+        _virtual_time_state.acquire()
+        try:
+            delay_events = list(_fast_forward_delay_events)
+        finally:
+            _virtual_time_state.release()
+        for delay_event in delay_events:
             if not delay_event.wait(MAX_DELAY_TIME):
                 logging.warning("A delay_event %r was not set despite waiting %0.2f seconds - continuing to travel through time...", delay_event, MAX_DELAY_TIME)
         set_offset(original_offset + step*step_size)
         _original_sleep(step_wait)
     if part != 0:
-        for delay_event in list(_fast_forward_delay_events):
+        _virtual_time_state.acquire()
+        try:
+            delay_events = list(_fast_forward_delay_events)
+        finally:
+            _virtual_time_state.release()
+        for delay_event in delay_events:
             if not delay_event.wait(MAX_DELAY_TIME):
                 logging.warning("A delay_event %r was not set despite waiting %0.2f seconds - continuing to travel through time...", delay_event, MAX_DELAY_TIME)
         set_offset(original_offset + delta)
