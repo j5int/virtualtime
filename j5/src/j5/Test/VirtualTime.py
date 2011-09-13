@@ -210,7 +210,7 @@ def restore_time():
     global _time_offset
     _virtual_time_state.acquire()
     try:
-        original_offset = _item_offset
+        original_offset = _time_offset
         _time_offset = 0
         logging.critical("VirtualTime offset restored from %r to %r at %r", original_offset, _time_offset, _original_datetime_now())
         callback_events = list(_virtual_time_callback_events)
