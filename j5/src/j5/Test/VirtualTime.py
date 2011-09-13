@@ -172,7 +172,9 @@ def set_offset(new_offset):
     global _time_offset
     _virtual_time_state.acquire()
     try:
+        original_offset = _time_offset
         _time_offset = new_offset
+        logging.critical("VirtualTime offset adjusted from %r to %r at %r", original_offset, _time_offset, _original_datetime_now())
         callback_events = list(_virtual_time_callback_events)
         for event in callback_events:
             event.clear()
@@ -254,7 +256,9 @@ def set_time(new_time):
     global _time_offset
     _virtual_time_state.acquire()
     try:
+        original_offset = _time_offset
         _time_offset = new_time - _original_time()
+        logging.critical("VirtualTime offset adjusted from %r to %r at %r", original_offset, _time_offset, _original_datetime_now())
         callback_events = list(_virtual_time_callback_events)
         for event in callback_events:
             event.clear()
@@ -271,7 +275,9 @@ def restore_time():
     global _time_offset
     _virtual_time_state.acquire()
     try:
+        original_offset = _item_offset
         _time_offset = 0
+        logging.critical("VirtualTime offset restored from %r to %r at %r", original_offset, _time_offset, _original_datetime_now())
         callback_events = list(_virtual_time_callback_events)
         for event in callback_events:
             event.clear()
