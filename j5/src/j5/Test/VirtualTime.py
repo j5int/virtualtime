@@ -375,7 +375,7 @@ def enable():
     try:
         __virtual_time_enabled += 1
         if __virtual_time_enabled > 0:
-            logging.info("Virtual Time enabled %d times; patching modules")
+            logging.info("Virtual Time enabled %d times; patching modules", __virtual_time_enabled)
             patch_time_module()
             patch_datetime_module()
     finally:
@@ -388,7 +388,7 @@ def disable():
     try:
         __virtual_time_enabled -= 1
         if __virtual_time_enabled <= 0:
-            logging.info("Virtual Time disabled %d times; unpatching modules")
+            logging.info("Virtual Time disabled %d times; unpatching modules", __virtual_time_enabled)
             unpatch_time_module()
             unpatch_datetime_module()
     finally:
