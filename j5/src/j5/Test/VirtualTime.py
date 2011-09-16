@@ -239,8 +239,8 @@ def set_utc_datetime(dt):
     """Sets the current time using the given naive utc datetime object"""
     set_time(utc_datetime_to_time(dt))
 
-def fast_forward_time(delta=None, target=None, step_size=1.0, step_wait=0.01):
-    """Moves through time to the target time or by the given delta amount, at the specified step pace, with small waits at each step"""
+def fast_forward_time(delta=None, target=None, step_size=1.0, step_wait=0.01, log_every=3600):
+    """Moves through time to the target time or by the given delta amount, at the specified step pace, with small waits at each step. By default will log at delay events or every hour"""
     if (delta is None and target is None) or (delta is not None and target is not None):
         raise ValueError("Must specify exactly one of delta and target")
     _virtual_time_state.acquire()
@@ -255,20 +255,30 @@ def fast_forward_time(delta=None, target=None, step_size=1.0, step_wait=0.01):
     if delta < 0:
         step_size = -step_size
     steps, part = divmod(delta, step_size)
+    last_log = -1
     for step in range(1, int(steps)+1):
         _virtual_time_state.acquire()
         try:
             delay_events = list(_fast_forward_delay_events)
         finally:
             _virtual_time_state.release()
-        log_caught = False
+        message_logged = (last_log != step-1)
         for delay_event in delay_events:
-            if not delay_event.is_set() and not log_caught:
-                logging.log(TIME_CHANGE_LOG_LEVEL, "VirtualTime fastforward offset at %r waiting for delay_event at %r", _time_offset, _original_datetime_now())
-                log_caught = True
-            if not delay_event.wait(MAX_DELAY_TIME):
+            delay_time = MAX_DELAY_TIME
+            if not message_logged and delay_time >= step_wait:
+                # try a minimal wait, and log if a larger delay is happening
+                if delay_event.wait(step_wait):
+                    continue
+                else:
+                    logging.log(TIME_CHANGE_LOG_LEVEL, "VirtualTime fastforward offset at %r waiting for delay_event at %r", _time_offset, _original_datetime_now())
+                    message_logged, last_log = True, step
+                    delay_time -= step_wait
+            if not delay_event.wait(delay_time):
                 logging.warning("A delay_event %r was not set despite waiting %0.2f seconds - continuing to travel through time...", delay_event, MAX_DELAY_TIME)
         set_offset(original_offset + step*step_size, suppress_log=True)
+        if log_every and step - last_log == log_every:
+            logging.log(TIME_CHANGE_LOG_LEVEL, "VirtualTime fastforward offset at %r at %r", _time_offset, _original_datetime_now())
+            last_log = step
         _original_sleep(step_wait)
     if part != 0:
         _virtual_time_state.acquire()
