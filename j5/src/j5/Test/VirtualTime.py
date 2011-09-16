@@ -170,14 +170,15 @@ def utc_datetime_to_time(dt):
     """converts a naive utc datetime object to a local time float"""
     return time.mktime(dt.utctimetuple()) + dt.microsecond * 0.000001 - (time.altzone if time.daylight else time.timezone)
 
-def set_offset(new_offset):
+def set_offset(new_offset, suppress_log=False):
     """Sets the current time offset to the given value"""
     global _time_offset
     _virtual_time_state.acquire()
     try:
         original_offset = _time_offset
         _time_offset = new_offset
-        logging.log(TIME_CHANGE_LOG_LEVEL, "VirtualTime offset adjusted from %r to %r at %r", original_offset, _time_offset, _original_datetime_now())
+        if not suppress_log:
+            logging.log(TIME_CHANGE_LOG_LEVEL, "VirtualTime offset adjusted from %r to %r at %r", original_offset, _time_offset, _original_datetime_now())
         callback_events = list(_virtual_time_callback_events)
         for event in callback_events:
             event.clear()
@@ -247,6 +248,7 @@ def fast_forward_time(delta=None, target=None, step_size=1.0, step_wait=0.01):
         original_offset = _time_offset
         if target is not None:
             delta = target - original_offset - _original_time()
+        logging.log(TIME_CHANGE_LOG_LEVEL, "VirtualTime commencing fastforward from %r to %r at %r", original_offset, original_offset + delta, _original_datetime_now())
     finally:
         _virtual_time_state.release()
     _original_sleep(step_wait)
@@ -259,10 +261,14 @@ def fast_forward_time(delta=None, target=None, step_size=1.0, step_wait=0.01):
             delay_events = list(_fast_forward_delay_events)
         finally:
             _virtual_time_state.release()
+        log_caught = False
         for delay_event in delay_events:
+            if not delay_event.is_set() and not log_caught:
+                logging.log(TIME_CHANGE_LOG_LEVEL, "VirtualTime fastforward offset at %r waiting for delay_event at %r", _time_offset, _original_datetime_now())
+                log_caught = True
             if not delay_event.wait(MAX_DELAY_TIME):
                 logging.warning("A delay_event %r was not set despite waiting %0.2f seconds - continuing to travel through time...", delay_event, MAX_DELAY_TIME)
-        set_offset(original_offset + step*step_size)
+        set_offset(original_offset + step*step_size, suppress_log=True)
         _original_sleep(step_wait)
     if part != 0:
         _virtual_time_state.acquire()
@@ -273,8 +279,9 @@ def fast_forward_time(delta=None, target=None, step_size=1.0, step_wait=0.01):
         for delay_event in delay_events:
             if not delay_event.wait(MAX_DELAY_TIME):
                 logging.warning("A delay_event %r was not set despite waiting %0.2f seconds - continuing to travel through time...", delay_event, MAX_DELAY_TIME)
-        set_offset(original_offset + delta)
+        set_offset(original_offset + delta, suppress_log=True)
         _original_sleep(step_wait)
+    logging.log(TIME_CHANGE_LOG_LEVEL, "VirtualTime completed fastforward from %r to %r at %r", original_offset, _time_offset, _original_datetime_now())
 
 def fast_forward_timedelta(delta, step_size=1.0, step_wait=0.01):
     """Moves through time by the given datetime.timedelta amount, at the specified step pace, with small waits at each step"""
