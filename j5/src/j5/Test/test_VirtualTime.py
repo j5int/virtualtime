@@ -464,3 +464,55 @@ class TestFastForward(RunPatched):
         assert completion_time - start_time < 0.2
         assert delay_event.is_set()
 
+class TestInheritance(object):
+    """Tests how detection of inheritance works for datetime classes"""
+    def setup_method(self, method):
+        """Ensure that VirtualTime is disabled when starting each test"""
+        VirtualTime.disable()
+        assert not VirtualTime.enabled()
+
+    def teardown_method(self, method):
+        """Ensure that VirtualTime is disabled after running each test"""
+        VirtualTime.disable()
+        assert not VirtualTime.enabled()
+
+    def test_disabled(self):
+        VirtualTime.disable()
+        assert issubclass(datetime_tz.datetime_tz, datetime.datetime)
+
+    def test_enabled(self):
+        VirtualTime.enable()
+        assert issubclass(datetime_tz.datetime_tz, datetime.datetime)
+
+    def test_switching(self):
+        orig_datetime = datetime.datetime
+        class derived_datetime(datetime.datetime):
+            pass
+        assert issubclass(datetime_tz.datetime_tz, orig_datetime)
+        assert issubclass(datetime_tz.datetime_tz, datetime.datetime)
+        assert issubclass(derived_datetime, orig_datetime)
+        assert issubclass(derived_datetime, datetime.datetime)
+        VirtualTime.enable()
+        class derived_datetime2(datetime.datetime):
+            pass
+        assert issubclass(datetime_tz.datetime_tz, orig_datetime)
+        assert issubclass(datetime_tz.datetime_tz, datetime.datetime)
+        assert issubclass(derived_datetime, orig_datetime)
+        assert issubclass(derived_datetime, datetime.datetime)
+        assert issubclass(derived_datetime2, orig_datetime)
+        assert issubclass(derived_datetime2, datetime.datetime)
+        VirtualTime.disable()
+        assert issubclass(datetime_tz.datetime_tz, orig_datetime)
+        assert issubclass(datetime_tz.datetime_tz, datetime.datetime)
+        assert issubclass(derived_datetime, orig_datetime)
+        assert issubclass(derived_datetime, datetime.datetime)
+        assert issubclass(derived_datetime2, orig_datetime)
+        assert issubclass(derived_datetime2, datetime.datetime)
+
+    def test_switching_values(self):
+        now = datetime_tz.datetime_tz.now()
+        assert isinstance(now, datetime.datetime)
+        VirtualTime.enable()
+        now = datetime_tz.datetime_tz.now()
+        assert isinstance(now, datetime.datetime)
+
