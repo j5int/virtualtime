@@ -176,7 +176,10 @@ def _wrap_method(name):
         if isinstance(r, _underlying_datetime_type) and not isinstance(r, datetime_module.datetime):
             r = datetime_module.datetime(r)
         return r
-    setattr(datetime, name, wrapper)
+    if type(method) == types.BuiltinMethodType:
+        setattr(datetime, name, staticmethod(wrapper))
+    else:
+        setattr(datetime, name, wrapper)
 
 for methodname in ["__add__", "__radd__", "__rsub__", "__sub__", "combine"]:
     # Make sure we have not already got an override for this method

@@ -513,9 +513,15 @@ class TestInheritance(object):
         assert isinstance(now, datetime.datetime)
         later = now + datetime.timedelta(hours=1)
         assert isinstance(later, datetime.datetime)
+        start = datetime.datetime.combine(now.date(), now.time())
+        assert isinstance(start, datetime.datetime)
+        assert datetime_tz.localize(start) == now
         VirtualTime.enable()
         now = datetime_tz.datetime_tz.now()
         assert isinstance(now, datetime.datetime)
         later = now + datetime.timedelta(hours=1)
         assert isinstance(later, datetime.datetime)
+        start = datetime.datetime.combine(now.date(), now.time())
+        assert isinstance(start, datetime.datetime)
+        assert datetime_tz.localize(start) == now
 
