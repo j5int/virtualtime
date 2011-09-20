@@ -468,16 +468,15 @@ class TestInheritance(object):
     """Tests how detection of inheritance works for datetime classes"""
     def setup_method(self, method):
         """Ensure that VirtualTime is disabled when starting each test"""
-        VirtualTime.disable()
-        assert not VirtualTime.enabled()
+        while VirtualTime.enabled():
+            VirtualTime.disable()
 
     def teardown_method(self, method):
         """Ensure that VirtualTime is disabled after running each test"""
-        VirtualTime.disable()
-        assert not VirtualTime.enabled()
+        while VirtualTime.enabled():
+            VirtualTime.disable()
 
     def test_disabled(self):
-        VirtualTime.disable()
         assert issubclass(datetime_tz.datetime_tz, datetime.datetime)
 
     def test_enabled(self):
