@@ -128,32 +128,48 @@ def _virtual_sleep(seconds):
             _original_sleep(0.001)
 
 _original_datetime_module = datetime_module
-_original_datetime_type = _original_datetime_module.datetime
-_original_datetime_now = _original_datetime_type.now
-_original_datetime_utcnow = _original_datetime_type.utcnow
+_underlying_datetime_type = _original_datetime_module.datetime
 
-_virtual_datetime_attrs = dict(_original_datetime_type.__dict__.items())
+_virtual_datetime_attrs = dict(_underlying_datetime_type.__dict__.items())
 class datetime(_original_datetime_module.datetime):
     def __new__(cls, *args, **kwargs):
-        dt = super(_virtual_datetime_type, cls).__new__(cls, *args, **kwargs)
+        if isinstance(args[0], _underlying_datetime_type):
+            dt = args[0]
+        else:
+            dt = _underlying_datetime_type.__new__(cls, *args, **kwargs)
         newargs = list(dt.timetuple()[0:6])+[dt.microsecond, dt.tzinfo]
-        return _original_datetime_type.__new__(cls, *newargs)
+        return _underlying_datetime_type.__new__(cls, *newargs)
 
+    def astimezone(self, tzinfo):
+        d = _underlying_datetime_type.astimezone(self, tzinfo)
+        return _original_datetime_type.__new__(type(self), d)
+    astimezone.__doc__ = _underlying_datetime_type.astimezone.__doc__
+
+    def replace(self, **kw):
+        d = _underlying_datetime_type.replace(self, **kw)
+        return _original_datetime_type.__new__(type(self), d)
+    replace.__doc__ = _underlying_datetime_type.replace.__doc__
+
+class virtual_datetime(datetime):
     @classmethod
     def now(cls):
         """Virtualized datetime.datetime.now()"""
-        dt = super(_virtual_datetime_type, cls).now() + _original_datetime_module.timedelta(seconds=_time_offset)
+        dt = super(_original_datetime_type, cls).now() + _original_datetime_module.timedelta(seconds=_time_offset)
         newargs = list(dt.timetuple()[0:6])+[dt.microsecond, dt.tzinfo]
         return _original_datetime_type.__new__(cls, *newargs)
 
     @classmethod
     def utcnow(cls):
         """Virtualized datetime.datetime.utcnow()"""
-        dt = super(_virtual_datetime_type, cls).utcnow() + _original_datetime_module.timedelta(seconds=_time_offset)
+        dt = super(_original_datetime_type, cls).utcnow() + _original_datetime_module.timedelta(seconds=_time_offset)
         newargs = list(dt.timetuple()[0:6])+[dt.microsecond, dt.tzinfo]
         return _original_datetime_type.__new__(cls, *newargs)
 
-_virtual_datetime_type = datetime
+_original_datetime_type = datetime
+_original_datetime_now = _original_datetime_type.now
+_original_datetime_utcnow = _original_datetime_type.utcnow
+_virtual_datetime_type = virtual_datetime
+datetime_module.datetime = datetime
 _virtual_datetime_now = _virtual_datetime_type.now
 _virtual_datetime_utcnow = _virtual_datetime_type.utcnow
 
@@ -344,11 +360,13 @@ def unpatch_time_module():
 
 def patch_datetime_module():
     """Patches the datetime module to work on virtual time"""
-    _original_datetime_module.datetime = _virtual_datetime_type
+    _original_datetime_module.datetime.now = _virtual_datetime_now
+    _original_datetime_module.datetime.utcnow = _virtual_datetime_utcnow
 
 def unpatch_datetime_module():
     """Restores the datetime module to work on real time"""
-    _original_datetime_module.datetime = _original_datetime_type
+    _original_datetime_module.datetime.now = _original_datetime_now
+    _original_datetime_module.datetime.utcnow = _original_datetime_utcnow
 
 def enabled():
     """Checks whether virtual time has been enabled by examing modules - returns a ValueError if in an inconsistent state"""
@@ -360,13 +378,13 @@ def enabled():
         ("time.localtime",    time.localtime, _original_localtime, _virtual_localtime),
         ("time.strftime",     time.strftime,  _original_strftime,  _virtual_strftime),
         ("time.sleep",        time.sleep,     _original_sleep,     _virtual_sleep),
-        ("datetime.datetime",        _original_datetime_module.datetime,        _original_datetime_type,   _virtual_datetime_type),
         ("datetime.datetime.now",    _original_datetime_module.datetime.now,    _original_datetime_now,    _virtual_datetime_now),
         ("datetime.datetime.utcnow", _original_datetime_module.datetime.utcnow, _original_datetime_utcnow, _virtual_datetime_utcnow),
     ]
     constant_functions = [
-        ("threading._time",   threading._time,   _original_time),
-        ("threading._sleep",   threading._sleep, _original_sleep),
+        ("datetime.datetime", _original_datetime_module.datetime, _original_datetime_type),
+        ("threading._time",   threading._time,                    _original_time),
+        ("threading._sleep",  threading._sleep,                   _original_sleep),
     ]
     for check_name, check_function, correct_function in constant_functions:
         if check_function != correct_function:
