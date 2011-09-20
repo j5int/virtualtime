@@ -18,6 +18,17 @@ else:
 
 import logging
 
+try:
+    # pylint: disable-msg=C6204
+    import functools
+except ImportError as e:
+    class functools(object):
+      """Fake replacement for a full functools."""
+      # pylint: disable-msg=W0613
+      @staticmethod
+      def wraps(f, *args, **kw):
+          return f
+
 TIME_CHANGE_LOG_LEVEL = logging.CRITICAL
 MAX_CALLBACK_TIME = 1.0
 MAX_DELAY_TIME = 60.0
@@ -149,6 +160,30 @@ class datetime(_original_datetime_module.datetime):
         d = _underlying_datetime_type.replace(self, **kw)
         return _original_datetime_type.__new__(type(self), d)
     replace.__doc__ = _underlying_datetime_type.replace.__doc__
+
+def _wrap_method(name):
+    """Wrap a method.
+    Patch a method which might return a base datetime.datetime to return a
+    derived datetime instead.
+    Args:
+      name: The name of the method to patch
+    """
+    method = getattr(_underlying_datetime_type, name)
+    # Have to give the second argument as method has no __module__ option.
+    @functools.wraps(method, ("__name__", "__doc__"), ())
+    def wrapper(*args, **kw):
+        r = method(*args, **kw)
+        if isinstance(r, _underlying_datetime_type) and not isinstance(r, datetime_module.datetime):
+            r = datetime_module.datetime(r)
+        return r
+    setattr(datetime, name, wrapper)
+
+for methodname in ["__add__", "__radd__", "__rsub__", "__sub__", "combine"]:
+    # Make sure we have not already got an override for this method
+    assert methodname not in datetime.__dict__
+    # pypy 1.5.0 lacks __rsub__
+    if hasattr(_underlying_datetime_type, methodname):
+        _wrap_method(methodname)
 
 class virtual_datetime(datetime):
     @classmethod

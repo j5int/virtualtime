@@ -511,7 +511,11 @@ class TestInheritance(object):
     def test_switching_values(self):
         now = datetime_tz.datetime_tz.now()
         assert isinstance(now, datetime.datetime)
+        later = now + datetime.timedelta(hours=1)
+        assert isinstance(later, datetime.datetime)
         VirtualTime.enable()
         now = datetime_tz.datetime_tz.now()
         assert isinstance(now, datetime.datetime)
+        later = now + datetime.timedelta(hours=1)
+        assert isinstance(later, datetime.datetime)
 
