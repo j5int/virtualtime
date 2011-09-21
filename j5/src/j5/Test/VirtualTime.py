@@ -43,7 +43,7 @@ _original_sleep = time.sleep
 
 _virtual_time_state = threading.Condition()
 # private variable that tracks whether virtual time is enabled - only to be used internally and locked with _virtual_time_state
-__virtual_time_enabled = 0
+__virtual_time_enabled = False
 _virtual_time_notify_events = WeakSet()
 _virtual_time_callback_events = WeakSet()
 _fast_forward_delay_events = WeakSet()
@@ -446,11 +446,10 @@ def enable():
     global __virtual_time_enabled
     _virtual_time_state.acquire()
     try:
-        __virtual_time_enabled += 1
-        if __virtual_time_enabled > 0:
-            logging.info("Virtual Time enabled %d times; patching modules", __virtual_time_enabled)
-            patch_time_module()
-            patch_datetime_module()
+        __virtual_time_enabled = True
+        logging.info("Virtual Time enabled %d times; patching modules", __virtual_time_enabled)
+        patch_time_module()
+        patch_datetime_module()
     finally:
         _virtual_time_state.release()
 
@@ -459,10 +458,9 @@ def disable():
     global __virtual_time_enabled
     _virtual_time_state.acquire()
     try:
-        __virtual_time_enabled -= 1
-        if __virtual_time_enabled <= 0:
-            logging.info("Virtual Time disabled %d times; unpatching modules", __virtual_time_enabled)
-            unpatch_time_module()
-            unpatch_datetime_module()
+        __virtual_time_enabled = False
+        logging.info("Virtual Time disabled %d times; unpatching modules", __virtual_time_enabled)
+        unpatch_time_module()
+        unpatch_datetime_module()
     finally:
         _virtual_time_state.release()
