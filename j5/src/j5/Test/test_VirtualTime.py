@@ -378,7 +378,9 @@ class TestFastForward(RunPatched):
         catcher_thread.join()
         assert offsets[:6] == [1.0, 2.0, 3.0, 3.5, 5.5, 7.5]
         assert 9 <= offsets[6] <= 9.2
-        assert offsets[7:] == [0, -0.9, -1.3, 0]
+        assert offsets[7:11] == [0, -0.9, -1.3, 0]
+        # depends on how long the stop event takes?
+        assert (not offsets[11:]) or offsets[11:] == [0]
 
     @Utils.if_long_test_run()
     @restore_time_after
@@ -426,7 +428,9 @@ class TestFastForward(RunPatched):
         assert offsets[:6] == [1.0, 2.0, 3.0, 3.5, 5.5, 7.5]
         assert 9 <= offsets[6] <= 9.2
         assert 18 <= offsets[7] <= 18.3
-        assert offsets[8:] == [0, -0.9, -1.3, 0]
+        assert offsets[8:12] == [0, -0.9, -1.3, 0]
+        # depends on how long the stop event takes?
+        assert (not offsets[12:]) or offsets[12:] == [0]
 
     def fast_forward_delayer(self, notify_event, delay_event, msg_dict):
         offsets = msg_dict['offsets']
@@ -460,7 +464,9 @@ class TestFastForward(RunPatched):
         notify_event.set()
         catcher_thread.join()
         completion_time = VirtualTime._original_time()
-        assert offsets == [1.0, 2.0, 0]
+        assert offsets[:3] == [1.0, 2.0, 0]
+        # depends on how long the stop event takes?
+        assert (not offsets[3:]) or offsets[3:] == [0]
         assert completion_time - start_time < 0.2
         assert delay_event.is_set()
 
