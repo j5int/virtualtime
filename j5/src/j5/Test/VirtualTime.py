@@ -184,32 +184,32 @@ class datetime(_original_datetime_module.datetime):
             newargs = list(dt.timetuple()[0:6])+[dt.microsecond, dt.tzinfo]
             return _original_datetime_type.__new__(cls, *newargs)
 
-def _wrap_method(name):
-    """Wrap a method.
-    Patch a method which might return a base datetime.datetime to return a
-    derived datetime instead.
-    Args:
-      name: The name of the method to patch
-    """
-    method = getattr(_underlying_datetime_type, name)
-    # Have to give the second argument as method has no __module__ option.
-    @functools.wraps(method, ("__name__", "__doc__"), ())
-    def wrapper(*args, **kw):
-        r = method(*args, **kw)
+    def __add__(self, other):
+        r = _underlying_datetime_type.__add__(self, other)
         if isinstance(r, _underlying_datetime_type) and not isinstance(r, datetime_module.datetime):
             r = datetime_module.datetime(r)
         return r
-    if type(method) == types.BuiltinMethodType:
-        setattr(datetime, name, staticmethod(wrapper))
-    else:
-        setattr(datetime, name, wrapper)
 
-for methodname in ["__add__", "__radd__", "__rsub__", "__sub__", "combine"]:
-    # Make sure we have not already got an override for this method
-    assert methodname not in datetime.__dict__
-    # pypy 1.5.0 lacks __rsub__
-    if hasattr(_underlying_datetime_type, methodname):
-        _wrap_method(methodname)
+    __radd__ = __add__
+
+    def __sub__(self, other):
+        r = _underlying_datetime_type.__sub__(self, other)
+        if isinstance(r, _underlying_datetime_type) and not isinstance(r, datetime_module.datetime):
+            r = datetime_module.datetime(r)
+        return r
+
+    def __rsub__(self, other):
+        r = _underlying_datetime_type.__rsub__(self, other)
+        if isinstance(r, _underlying_datetime_type) and not isinstance(r, datetime_module.datetime):
+            r = datetime_module.datetime(r)
+        return r
+
+    @classmethod
+    def __combine__(cls, date, time):
+        r = _underlying_datetime_type.combine(cls, date, time)
+        if isinstance(r, _underlying_datetime_type) and not isinstance(r, datetime_module.datetime):
+            r = datetime_module.datetime(r)
+        return r
 
 class virtual_datetime(datetime):
     @classmethod
