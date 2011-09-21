@@ -44,6 +44,8 @@ _original_sleep = time.sleep
 _virtual_time_state = threading.Condition()
 # private variable that tracks whether virtual time is enabled - only to be used internally and locked with _virtual_time_state
 __virtual_time_enabled = False
+# In PyPy (as of 1.6) on all platforms, and CPython (as of 2.7.1) on Windows, datetime.datetime.[utc]now calls time.time()
+_datetime_now_uses_time = ("PyPy" in sys.version or sys.platform == 'win32')
 _virtual_time_notify_events = WeakSet()
 _virtual_time_callback_events = WeakSet()
 _fast_forward_delay_events = WeakSet()
@@ -160,6 +162,27 @@ class datetime(_original_datetime_module.datetime):
         d = _underlying_datetime_type.replace(self, **kw)
         return _original_datetime_type.__new__(type(self), d)
     replace.__doc__ = _underlying_datetime_type.replace.__doc__
+
+    if _datetime_now_uses_time:
+        @classmethod
+        def now(cls):
+            """Virtualized datetime.datetime.now()"""
+            # make the original datetime.now method counteract the offsets in time.time()
+            dt = _underlying_datetime_type.now()
+            if time.time != _original_time:
+                dt = dt + _original_datetime_module.timedelta(seconds=-_time_offset)
+            newargs = list(dt.timetuple()[0:6])+[dt.microsecond, dt.tzinfo]
+            return _original_datetime_type.__new__(cls, *newargs)
+
+        @classmethod
+        def utcnow(cls):
+            """Virtualized datetime.datetime.utcnow()"""
+            # make the original datetime.utcnow method counteract the offsets in time.time()
+            dt = _underlying_datetime_type.utcnow()
+            if time.time != _original_time:
+                dt = dt + _original_datetime_module.timedelta(seconds=-_time_offset)
+            newargs = list(dt.timetuple()[0:6])+[dt.microsecond, dt.tzinfo]
+            return _original_datetime_type.__new__(cls, *newargs)
 
 def _wrap_method(name):
     """Wrap a method.
