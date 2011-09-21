@@ -123,6 +123,36 @@ class RunPatched(object):
         """Restores normal time after the method has finished"""
         VirtualTime.restore_time()
 
+class TestPartialPatching(object):
+    @classmethod
+    def setup_class(cls):
+        VirtualTime.disable()
+
+    def test_correspondence(self):
+        """Checks that patching time and datetime modules independently works"""
+        start_time, start_date = time.time(), datetime.datetime.now()
+        VirtualTime.patch_time_module()
+        second_time, second_date = time.time(), datetime.datetime.now()
+        assert 0 <= second_time - start_time <= 0.05
+        assert datetime.timedelta(0) <= second_date - start_date <= datetime.timedelta(seconds=0.05)
+        VirtualTime.set_offset(3600)
+        half_time, half_date = time.time(), datetime.datetime.now()
+        assert 3600 <= half_time - start_time <= 3600.1
+        # datetime is not patched yet
+        assert datetime.timedelta(seconds=0) <= half_date - start_date <= datetime.timedelta(seconds=0.1)
+        VirtualTime.patch_datetime_module()
+        whole_time, whole_date = time.time(), datetime.datetime.now()
+        assert 3600 <= whole_time - start_time <= 3600.1
+        assert datetime.timedelta(seconds=3600) <= whole_date - start_date <= datetime.timedelta(seconds=3600.1)
+        VirtualTime.unpatch_time_module()
+        other_half_time, other_half_date = time.time(), datetime.datetime.now()
+        assert 0 <= other_half_time - start_time <= 0.1
+        assert datetime.timedelta(seconds=3600) <= other_half_date - start_date <= datetime.timedelta(seconds=3600.1)
+
+    @classmethod
+    def teardown_class(cls):
+        VirtualTime.disable()
+
 class RealTimeBase(object):
     """Tests for real time functions"""
     def test_time(self):
