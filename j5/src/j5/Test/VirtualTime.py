@@ -184,6 +184,14 @@ class datetime(_original_datetime_module.datetime):
             newargs = list(dt.timetuple()[0:6])+[dt.microsecond, dt.tzinfo]
             return _original_datetime_type.__new__(cls, *newargs)
 
+    @classmethod
+    def combine(cls, date, time):
+        """date, time -> datetime with same date and time fields"""
+        r = _underlying_datetime_type.combine(date, time)
+        if isinstance(r, _underlying_datetime_type) and not isinstance(r, datetime_module.datetime):
+            r = datetime_module.datetime(r)
+        return r
+
     def __add__(self, other):
         r = _underlying_datetime_type.__add__(self, other)
         if isinstance(r, _underlying_datetime_type) and not isinstance(r, datetime_module.datetime):
@@ -204,12 +212,33 @@ class datetime(_original_datetime_module.datetime):
             r = datetime_module.datetime(r)
         return r
 
-    @classmethod
-    def __combine__(cls, date, time):
-        r = _underlying_datetime_type.combine(cls, date, time)
-        if isinstance(r, _underlying_datetime_type) and not isinstance(r, datetime_module.datetime):
-            r = datetime_module.datetime(r)
-        return r
+    if hasattr(_underlying_datetime_type, "__mul__"):
+        def __mul__(self, other):
+            r = _underlying_datetime_type.__mul__(self, other)
+            if isinstance(r, _underlying_datetime_type) and not isinstance(r, datetime_module.datetime):
+                r = datetime_module.datetime(r)
+            return r
+
+    if hasattr(_underlying_datetime_type, "__rmul__"):
+        def __rmul__(self, other):
+            r = _underlying_datetime_type.__rmul__(self, other)
+            if isinstance(r, _underlying_datetime_type) and not isinstance(r, datetime_module.datetime):
+                r = datetime_module.datetime(r)
+            return r
+
+    if hasattr(_underlying_datetime_type, "__div__"):
+        def __div__(self, other):
+            r = _underlying_datetime_type.__div__(self, other)
+            if isinstance(r, _underlying_datetime_type) and not isinstance(r, datetime_module.datetime):
+                r = datetime_module.datetime(r)
+            return r
+
+    if hasattr(_underlying_datetime_type, "__floordiv__"):
+        def __floordiv__(self, other):
+            r = _underlying_datetime_type.__floordiv__(self, other)
+            if isinstance(r, _underlying_datetime_type) and not isinstance(r, datetime_module.datetime):
+                r = datetime_module.datetime(r)
+            return r
 
 class virtual_datetime(datetime):
     @classmethod
