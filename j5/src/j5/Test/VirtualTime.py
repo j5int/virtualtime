@@ -192,14 +192,14 @@ class virtual_datetime(datetime):
     @classmethod
     def now(cls):
         """Virtualized datetime.datetime.now()"""
-        dt = super(_original_datetime_type, cls).now() + _original_datetime_module.timedelta(seconds=_time_offset)
+        dt = _original_datetime_now() + _original_datetime_module.timedelta(seconds=_time_offset)
         newargs = list(dt.timetuple()[0:6])+[dt.microsecond, dt.tzinfo]
         return _original_datetime_type.__new__(cls, *newargs)
 
     @classmethod
     def utcnow(cls):
         """Virtualized datetime.datetime.utcnow()"""
-        dt = super(_original_datetime_type, cls).utcnow() + _original_datetime_module.timedelta(seconds=_time_offset)
+        dt = _original_datetime_utcnow() + _original_datetime_module.timedelta(seconds=_time_offset)
         newargs = list(dt.timetuple()[0:6])+[dt.microsecond, dt.tzinfo]
         return _original_datetime_type.__new__(cls, *newargs)
 
