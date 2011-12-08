@@ -43,7 +43,7 @@ def check_real_time_function(time_function, code_str, *import_modules):
     assert first_time < outside_time < second_time
 
 @restore_time_after
-def run_time_function_test(time_function, set_function, diff, enabled=True):
+def run_time_function_tst(time_function, set_function, diff, enabled=True):
     """Generic test for time_function and a set_function that can move the return of that time_function forwards or backwards by diff
     Checks that the right thing will happen when VirtualTime enabled/disabled"""
     first_time = time_function()
@@ -59,7 +59,7 @@ def run_time_function_test(time_function, set_function, diff, enabled=True):
         assert first_time <= late_time <= early_time <= last_time
 
 @restore_time_after
-def run_time_derived_function_test(derived_function, time_function, set_function, diff, min_diff=None, enabled=True):
+def run_time_derived_function_tst(derived_function, time_function, set_function, diff, min_diff=None, enabled=True):
     """Generic test for time_function and a set_function that can move the return of that time_function forwards or backwards by diff
     Checks that the right thing will happen when VirtualTime enabled/disabled"""
     first_derived, first_time = derived_function(), time_function()
@@ -253,53 +253,53 @@ class VirtualTimeBase(object):
     """Tests for virtual time functions when VirtualTime is enabled"""
     def test_time(self):
         """tests that we can set time"""
-        run_time_function_test(time.time, VirtualTime.set_time, 100, enabled=self.virtual_time_enabled)
+        run_time_function_tst(time.time, VirtualTime.set_time, 100, enabled=self.virtual_time_enabled)
 
     def test_localtime(self):
         """tests that we can set time and it affects localtime"""
-        run_time_derived_function_test(time.localtime, time.time, VirtualTime.set_time, 100, min_diff=1, enabled=self.virtual_time_enabled)
+        run_time_derived_function_tst(time.localtime, time.time, VirtualTime.set_time, 100, min_diff=1, enabled=self.virtual_time_enabled)
 
     def test_gmtime(self):
         """tests that we can set time and it affects gmtime"""
-        run_time_derived_function_test(time.gmtime, time.time, VirtualTime.set_time, 100, min_diff=1, enabled=self.virtual_time_enabled)
+        run_time_derived_function_tst(time.gmtime, time.time, VirtualTime.set_time, 100, min_diff=1, enabled=self.virtual_time_enabled)
 
     def test_asctime(self):
         """tests that we can set time and it affects asctime"""
         order_preserving_asctime = lambda: order_preserving_timestr_reslice(time.asctime())
-        run_time_derived_function_test(order_preserving_asctime, time.time, VirtualTime.set_time, 100, min_diff=1, enabled=self.virtual_time_enabled)
+        run_time_derived_function_tst(order_preserving_asctime, time.time, VirtualTime.set_time, 100, min_diff=1, enabled=self.virtual_time_enabled)
 
     def test_ctime(self):
         """tests that we can set time and it affects ctime"""
         order_preserving_ctime = lambda: order_preserving_timestr_reslice(time.ctime())
-        run_time_derived_function_test(order_preserving_ctime, time.time, VirtualTime.set_time, 100, min_diff=1, enabled=self.virtual_time_enabled)
+        run_time_derived_function_tst(order_preserving_ctime, time.time, VirtualTime.set_time, 100, min_diff=1, enabled=self.virtual_time_enabled)
 
     def test_strftime(self):
         """tests that we can set time and it affects ctime"""
         strftime_iso = lambda: time.strftime("%Y-%m-%d %H:%M:%S")
-        run_time_derived_function_test(strftime_iso, time.time, VirtualTime.set_time, 100, min_diff=1, enabled=self.virtual_time_enabled)
+        run_time_derived_function_tst(strftime_iso, time.time, VirtualTime.set_time, 100, min_diff=1, enabled=self.virtual_time_enabled)
 
     def test_datetime_now(self):
         """tests that setting time and datetime are both possible"""
-        run_time_function_test(datetime.datetime.now, VirtualTime.set_local_datetime, datetime.timedelta(seconds=100), enabled=self.virtual_time_enabled)
+        run_time_function_tst(datetime.datetime.now, VirtualTime.set_local_datetime, datetime.timedelta(seconds=100), enabled=self.virtual_time_enabled)
 
     def test_datetime_utcnow(self):
         """tests that setting time and datetime are both possible"""
-        run_time_function_test(datetime.datetime.utcnow, VirtualTime.set_utc_datetime, datetime.timedelta(seconds=100), enabled=self.virtual_time_enabled)
+        run_time_function_tst(datetime.datetime.utcnow, VirtualTime.set_utc_datetime, datetime.timedelta(seconds=100), enabled=self.virtual_time_enabled)
 
     def test_datetime_tz_now(self):
         """tests that setting time and datetime are both possible"""
-        run_time_function_test(datetime_tz.datetime_tz.now, VirtualTime.set_local_datetime, datetime.timedelta(seconds=100), enabled=self.virtual_time_enabled)
+        run_time_function_tst(datetime_tz.datetime_tz.now, VirtualTime.set_local_datetime, datetime.timedelta(seconds=100), enabled=self.virtual_time_enabled)
 
     def test_datetime_tz_utcnow(self):
         """tests that setting time and datetime are both possible"""
-        run_time_function_test(datetime_tz.datetime_tz.utcnow, VirtualTime.set_utc_datetime, datetime.timedelta(seconds=100), enabled=self.virtual_time_enabled)
+        run_time_function_tst(datetime_tz.datetime_tz.utcnow, VirtualTime.set_utc_datetime, datetime.timedelta(seconds=100), enabled=self.virtual_time_enabled)
 
     def test_datetime_tz_now_other_tz(self):
         """tests that setting time and datetime are both possible"""
         for tz_name in ["Asia/Tokyo", "Europe/London", "America/Chicago"]:
             tz = pytz.timezone(tz_name)
             tz_now = lambda: datetime_tz.datetime_tz.now().astimezone(tz)
-            run_time_derived_function_test(tz_now, datetime_tz.datetime_tz.utcnow, VirtualTime.set_utc_datetime, datetime.timedelta(seconds=100), enabled=self.virtual_time_enabled)
+            run_time_derived_function_tst(tz_now, datetime_tz.datetime_tz.utcnow, VirtualTime.set_utc_datetime, datetime.timedelta(seconds=100), enabled=self.virtual_time_enabled)
 
 class TestDisabledVirtualTime(VirtualTimeBase, RunUnpatched):
     """Tests that virtual time functions have no effect when VirtualTime is disabled"""
