@@ -297,6 +297,10 @@ def set_offset(new_offset, suppress_log=False):
         if not event.wait(MAX_CALLBACK_TIME):
             logging.warning("VirtualTime callback was not received in %r seconds at %r", MAX_CALLBACK_TIME, _original_datetime_now())
 
+def get_offset():
+    global _time_offset
+    return _time_offset
+
 def set_time(new_time):
     """Sets the current time to the given time.time()-equivalent value"""
     global _time_offset
