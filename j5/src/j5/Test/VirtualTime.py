@@ -49,6 +49,7 @@ _datetime_now_uses_time = ("PyPy" in sys.version or sys.platform == 'win32')
 _virtual_time_notify_events = WeakSet()
 _virtual_time_callback_events = WeakSet()
 _fast_forward_delay_events = WeakSet()
+_is_skip_time_change = False
 _time_offset = 0
 
 def notify_on_change(event):
@@ -96,6 +97,14 @@ def undo_delay_fast_forward_until_set(event):
     _virtual_time_state.acquire()
     try:
         _fast_forward_delay_events.discard(event)
+    finally:
+        _virtual_time_state.release()
+
+def is_skip_time_change():
+    """Indicates whether the offset change is a fast_forward or not"""
+    _virtual_time_state.acquire()
+    try:
+        return _is_skip_time_change
     finally:
         _virtual_time_state.release()
 
@@ -276,50 +285,68 @@ def utc_datetime_to_time(dt):
     """converts a naive utc datetime object to a local time float"""
     return time.mktime(dt.utctimetuple()) + dt.microsecond * 0.000001 - (time.altzone if time.daylight else time.timezone)
 
-def set_offset(new_offset, suppress_log=False):
+def set_offset(new_offset, suppress_log=False, is_fast_forward_change=False):
     """Sets the current time offset to the given value"""
     global _time_offset
-    _virtual_time_state.acquire()
+    global _is_skip_time_change
     try:
-        original_offset = _time_offset
-        _time_offset = new_offset
-        if not suppress_log:
-            logging.log(TIME_CHANGE_LOG_LEVEL, "VirtualTime offset adjusted from %r to %r at %r", original_offset, _time_offset, _original_datetime_now())
-        callback_events = list(_virtual_time_callback_events)
+        _virtual_time_state.acquire()
+        try:
+            _is_skip_time_change = not is_fast_forward_change
+            original_offset = _time_offset
+            _time_offset = new_offset
+            if not suppress_log:
+                logging.log(TIME_CHANGE_LOG_LEVEL, "VirtualTime offset adjusted from %r to %r at %r", original_offset, _time_offset, _original_datetime_now())
+            callback_events = list(_virtual_time_callback_events)
+            for event in callback_events:
+                event.clear()
+            _virtual_time_state.notify_all()
+            for event in _virtual_time_notify_events:
+                event.set()
+        finally:
+            _virtual_time_state.release()
         for event in callback_events:
-            event.clear()
-        _virtual_time_state.notify_all()
-        for event in _virtual_time_notify_events:
-            event.set()
+            if not event.wait(MAX_CALLBACK_TIME):
+                logging.warning("VirtualTime callback was not received in %r seconds at %r", MAX_CALLBACK_TIME, _original_datetime_now())
     finally:
-        _virtual_time_state.release()
-    for event in callback_events:
-        if not event.wait(MAX_CALLBACK_TIME):
-            logging.warning("VirtualTime callback was not received in %r seconds at %r", MAX_CALLBACK_TIME, _original_datetime_now())
+        _virtual_time_state.acquire()
+        try:
+            _is_skip_time_change = False
+        finally:
+            _virtual_time_state.release()
 
 def get_offset():
     global _time_offset
     return _time_offset
 
-def set_time(new_time):
+def set_time(new_time, is_fast_forward_change=False):
     """Sets the current time to the given time.time()-equivalent value"""
     global _time_offset
-    _virtual_time_state.acquire()
+    global _is_skip_time_change
     try:
-        original_offset = _time_offset
-        _time_offset = new_time - _original_time()
-        logging.log(TIME_CHANGE_LOG_LEVEL, "VirtualTime offset adjusted from %r to %r at %r", original_offset, _time_offset, _original_datetime_now())
-        callback_events = list(_virtual_time_callback_events)
+        _virtual_time_state.acquire()
+        try:
+            _is_skip_time_change = not is_fast_forward_change
+            original_offset = _time_offset
+            _time_offset = new_time - _original_time()
+            logging.log(TIME_CHANGE_LOG_LEVEL, "VirtualTime offset adjusted from %r to %r at %r", original_offset, _time_offset, _original_datetime_now())
+            callback_events = list(_virtual_time_callback_events)
+            for event in callback_events:
+                event.clear()
+            _virtual_time_state.notify_all()
+            for event in _virtual_time_notify_events:
+                event.set()
+        finally:
+            _virtual_time_state.release()
         for event in callback_events:
-            event.clear()
-        _virtual_time_state.notify_all()
-        for event in _virtual_time_notify_events:
-            event.set()
+            if not event.wait(MAX_CALLBACK_TIME):
+                logging.warning("VirtualTime callback was not received in %r seconds at %r", MAX_CALLBACK_TIME, _original_datetime_now())
     finally:
-        _virtual_time_state.release()
-    for event in callback_events:
-        if not event.wait(MAX_CALLBACK_TIME):
-            logging.warning("VirtualTime callback was not received in %r seconds at %r", MAX_CALLBACK_TIME, _original_datetime_now())
+        _virtual_time_state.acquire()
+        try:
+            _is_skip_time_change = False
+        finally:
+            _virtual_time_state.release()
 
 def restore_time():
     """Reverts to real time operation"""
@@ -385,7 +412,7 @@ def fast_forward_time(delta=None, target=None, step_size=1.0, step_wait=0.01, lo
                     delay_time -= step_wait
             if not delay_event.wait(delay_time):
                 logging.warning("A delay_event %r was not set despite waiting %0.2f seconds - continuing to travel through time...", delay_event, MAX_DELAY_TIME)
-        set_offset(original_offset + step*step_size, suppress_log=True)
+        set_offset(original_offset + step*step_size, suppress_log=True, is_fast_forward_change=True)
         if log_every and step - last_log == log_every:
             logging.log(TIME_CHANGE_LOG_LEVEL, "VirtualTime fastforward offset at %r at %r", _time_offset, _original_datetime_now())
             last_log = step
@@ -399,7 +426,7 @@ def fast_forward_time(delta=None, target=None, step_size=1.0, step_wait=0.01, lo
         for delay_event in delay_events:
             if not delay_event.wait(MAX_DELAY_TIME):
                 logging.warning("A delay_event %r was not set despite waiting %0.2f seconds - continuing to travel through time...", delay_event, MAX_DELAY_TIME)
-        set_offset(original_offset + delta, suppress_log=True)
+        set_offset(original_offset + delta, suppress_log=True, is_fast_forward_change=True)
         _original_sleep(step_wait)
     logging.log(TIME_CHANGE_LOG_LEVEL, "VirtualTime completed fastforward from %r to %r at %r", original_offset, _time_offset, _original_datetime_now())
 
