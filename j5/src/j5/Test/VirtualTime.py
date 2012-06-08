@@ -49,7 +49,7 @@ _datetime_now_uses_time = ("PyPy" in sys.version or sys.platform == 'win32')
 _virtual_time_notify_events = WeakSet()
 _virtual_time_callback_events = WeakSet()
 _fast_forward_delay_events = WeakSet()
-_is_skip_time_change = False
+_in_skip_time_change = False
 _time_offset = 0
 
 def notify_on_change(event):
@@ -100,11 +100,11 @@ def undo_delay_fast_forward_until_set(event):
     finally:
         _virtual_time_state.release()
 
-def is_skip_time_change():
+def in_skip_time_change():
     """Indicates whether the offset change is a fast_forward or not"""
     _virtual_time_state.acquire()
     try:
-        return _is_skip_time_change
+        return _in_skip_time_change
     finally:
         _virtual_time_state.release()
 
@@ -288,11 +288,11 @@ def utc_datetime_to_time(dt):
 def set_offset(new_offset, suppress_log=False, is_fast_forward_change=False):
     """Sets the current time offset to the given value"""
     global _time_offset
-    global _is_skip_time_change
+    global _in_skip_time_change
     try:
         _virtual_time_state.acquire()
         try:
-            _is_skip_time_change = not is_fast_forward_change
+            _in_skip_time_change = not is_fast_forward_change
             original_offset = _time_offset
             _time_offset = new_offset
             if not suppress_log:
@@ -311,7 +311,7 @@ def set_offset(new_offset, suppress_log=False, is_fast_forward_change=False):
     finally:
         _virtual_time_state.acquire()
         try:
-            _is_skip_time_change = False
+            _in_skip_time_change = False
         finally:
             _virtual_time_state.release()
 
@@ -322,11 +322,11 @@ def get_offset():
 def set_time(new_time, is_fast_forward_change=False):
     """Sets the current time to the given time.time()-equivalent value"""
     global _time_offset
-    global _is_skip_time_change
+    global _in_skip_time_change
     try:
         _virtual_time_state.acquire()
         try:
-            _is_skip_time_change = not is_fast_forward_change
+            _in_skip_time_change = not is_fast_forward_change
             original_offset = _time_offset
             _time_offset = new_time - _original_time()
             logging.log(TIME_CHANGE_LOG_LEVEL, "VirtualTime offset adjusted from %r to %r at %r", original_offset, _time_offset, _original_datetime_now())
@@ -344,7 +344,7 @@ def set_time(new_time, is_fast_forward_change=False):
     finally:
         _virtual_time_state.acquire()
         try:
-            _is_skip_time_change = False
+            _in_skip_time_change = False
         finally:
             _virtual_time_state.release()
 
