@@ -115,11 +115,17 @@ class RunPatched(object):
         VirtualTime.disable()
         assert not VirtualTime.enabled()
 
-    def setup_method(self, method):
+    def setup_method(self, method):  # This is a wrapper of setUp for py.test (py.test and nose take different method setup methods)
+        self.setUp()
+
+    def setUp(self):
         """Restores normal time to ensure tests start cleanly"""
         VirtualTime.restore_time()
 
-    def teardown_method(self, method):
+    def teardown_method(self, method):  # This is a wrapper of tearDown for py.test (py.test and nose take different method setup methods)
+        self.tearDown()
+
+    def tearDown(self):
         """Restores normal time after the method has finished"""
         VirtualTime.restore_time()
 
@@ -308,10 +314,16 @@ class TestVirtualTime(VirtualTimeBase, RunPatched):
     """Tests that virtual time functions have no effect when VirtualTime is disabled"""
 
 class SleepBase(object):
-    def setup_method(self, method):
+    def setup_method(self, method):  # This is a wrapper of setUp for py.test (py.test and nose take different method setup methods)
+        self.setUp()
+
+    def setUp(self):
         self.initial_waiter_count = len(VirtualTime._virtual_time_state._Condition__waiters)
 
-    def teardown_method(self, method):
+    def teardown_method(self, method):  # This is a wrapper of tearDown for py.test (py.test and nose take different method setup methods)
+        self.tearDown()
+
+    def tearDown(self):
         del self.initial_waiter_count
 
     def wait_sleep_started(self, sleep_count, max_wait=5.0):
@@ -502,12 +514,18 @@ class TestFastForward(RunPatched):
 
 class TestInheritance(object):
     """Tests how detection of inheritance works for datetime classes"""
-    def setup_method(self, method):
+    def setup_method(self, method):  # This is a wrapper of setUp for py.test (py.test and nose take different method setup methods)
         """Ensure that VirtualTime is disabled when starting each test"""
+        self.setUp()
+
+    def setUp(self):
         while VirtualTime.enabled():
             VirtualTime.disable()
 
-    def teardown_method(self, method):
+    def teardown_method(self, method):  # This is a wrapper of tearDown for py.test (py.test and nose take different method setup methods)
+        self.tearDown()
+
+    def tearDown(self):
         """Ensure that VirtualTime is disabled after running each test"""
         while VirtualTime.enabled():
             VirtualTime.disable()
