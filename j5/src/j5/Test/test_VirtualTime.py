@@ -365,7 +365,7 @@ class SleepBase(object):
         self.wait_sleep_started(REPEATS, 0.5)
         thread_time = VirtualTime._original_time()
         setup_duration = thread_time - first_time
-        assert setup_duration < 0.1
+        assert setup_duration < 0.2
         VirtualTime.set_time(thread_time + 20)
         for n in range(REPEATS):
             sleeper_threads[n].join()
