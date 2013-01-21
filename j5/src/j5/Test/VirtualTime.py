@@ -174,10 +174,10 @@ class datetime(_original_datetime_module.datetime):
 
     if _datetime_now_uses_time:
         @classmethod
-        def now(cls):
+        def now(cls, tz=None):
             """Virtualized datetime.datetime.now()"""
             # make the original datetime.now method counteract the offsets in time.time()
-            dt = _underlying_datetime_type.now()
+            dt = _underlying_datetime_type.now(tz=tz)
             if time.time != _original_time:
                 dt = dt + _original_datetime_module.timedelta(seconds=-_time_offset)
             newargs = list(dt.timetuple()[0:6])+[dt.microsecond, dt.tzinfo]
@@ -251,9 +251,9 @@ class datetime(_original_datetime_module.datetime):
 
 class virtual_datetime(datetime):
     @classmethod
-    def now(cls):
+    def now(cls, tz=None):
         """Virtualized datetime.datetime.now()"""
-        dt = _original_datetime_now() + _original_datetime_module.timedelta(seconds=_time_offset)
+        dt = _original_datetime_now(tz=tz) + _original_datetime_module.timedelta(seconds=_time_offset)
         newargs = list(dt.timetuple()[0:6])+[dt.microsecond, dt.tzinfo]
         return _original_datetime_type.__new__(cls, *newargs)
 
