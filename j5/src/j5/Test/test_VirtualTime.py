@@ -169,6 +169,12 @@ class RealTimeBase(object):
         """tests that real time is still happening in the datetime module"""
         check_real_time_function(datetime.datetime.now, "datetime.datetime.now()", "datetime")
 
+    def test_datetime_now_with_tz(self):
+        """tests that real time is still happening in the datetime module"""
+        def f():
+            return datetime.datetime.now(pytz.timezone('Africa/Johannesburg'))
+        check_real_time_function(f, "datetime.datetime.now(pytz.timezone('Africa/Johannesburg'))", "datetime", "pytz")
+
     def test_datetime_utcnow(self):
         """tests that real time is still happening in the datetime module"""
         check_real_time_function(datetime.datetime.utcnow, "datetime.datetime.utcnow()", "datetime")
