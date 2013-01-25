@@ -14,6 +14,7 @@ import decorator
 import threading
 import logging
 
+
 def outside(code_str, *import_modules):
     """Runs a code string in a separate process, pickles the result, and returns it"""
     import_modules_str = 'import %s' % ', '.join(import_modules) if import_modules else ''
@@ -263,6 +264,18 @@ class TestTimeNotification(RunPatched):
 
 class VirtualTimeBase(object):
     """Tests for virtual time functions when VirtualTime is enabled"""
+    def test_datetime_init(self):
+        """tests the basic instantiation of datetime objects."""
+        datetime.datetime(2012, 7, 25) # Richardg's birthday...hooray
+        datetime.datetime(year=2012, month=7, day=25, hour=10, minute=27, second=3, microsecond=100, tzinfo=pytz.timezone('Africa/Johannesburg'))
+        # test args, kwargs
+        args = (2012,7,25)
+        kwargs = {'hour':10, 'minute':27, 'second':3}
+        kwargs_only = {'year':2012, 'month':7, 'day': 25, 'hour':10, 'minute':27, 'second':3, 'microsecond':100, 'tzinfo': pytz.timezone('Africa/Johannesburg')}
+        datetime.datetime(*args)
+        datetime.datetime(*args, **kwargs)
+        datetime.datetime(**kwargs_only)
+
     def test_time(self):
         """tests that we can set time"""
         run_time_function_tst(time.time, VirtualTime.set_time, 100, enabled=self.virtual_time_enabled)
