@@ -155,7 +155,7 @@ _underlying_datetime_type = _original_datetime_module.datetime
 _virtual_datetime_attrs = dict(_underlying_datetime_type.__dict__.items())
 class datetime(_original_datetime_module.datetime):
     def __new__(cls, *args, **kwargs):
-        if isinstance(args[0], _underlying_datetime_type):
+        if args and isinstance(args[0], _underlying_datetime_type):
             dt = args[0]
         else:
             dt = _underlying_datetime_type.__new__(cls, *args, **kwargs)
