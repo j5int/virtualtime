@@ -3,6 +3,7 @@
 from j5.Test import VirtualTime
 from j5.Test import Utils
 from j5.OS import datetime_tz
+from j5.OS import test_datetime_tz
 import datetime
 import time
 import pytz
@@ -13,6 +14,7 @@ import sys
 import decorator
 import threading
 import logging
+import datetime
 
 
 def outside(code_str, *import_modules):
@@ -598,3 +600,94 @@ class TestInheritance(object):
         assert isinstance(start, datetime.datetime)
         assert datetime_tz.localize(start) == now
 
+_original_datetime_module = VirtualTime._original_datetime_module
+_original_datetime_type = VirtualTime._original_datetime_type
+_original_datetime_now = VirtualTime._original_datetime_now
+_original_datetime_utcnow = VirtualTime._original_datetime_utcnow
+_time_offset = VirtualTime._time_offset
+
+class virtual_datetime_tz_offset (VirtualTime.virtual_datetime):
+
+    @classmethod
+    def now(cls, tz=None):
+        """Virtualized datetime.datetime.now()"""
+        return super(virtual_datetime_tz_offset, cls).now()
+
+    @classmethod
+    def utcnow(cls):
+        """Virtualized datetime.datetime.utcnow()"""
+        tz = getattr(datetime.datetime, "localtz_override") or datetime_tz.localtz()
+        now = super(virtual_datetime_tz_offset, cls).now()
+        #print now.replace(tzinfo=tz), tz.utcoffset(now.replace(tzinfo=tz))
+        #print "utcnow", tz.localize(now).utcoffset()
+        return now - tz.localize(now).utcoffset()
+
+
+_original_vt_module = datetime.datetime
+
+def patch_vt_module():
+    """Patches the datetime module to work on virtual time"""
+    datetime.datetime.now = virtual_datetime_tz_offset.now
+    datetime.datetime.utcnow = virtual_datetime_tz_offset.utcnow
+
+def unpatch_vt_module():
+    """Restores the datetime module to work on real time"""
+    datetime.datetime.now = _original_vt_module.now
+    datetime.datetime.utcnow = _original_vt_module.utcnow
+
+class TestVirtualDatetimeOffset:
+
+    def setup(self):
+        VirtualTime.enable()
+        datetime.datetime.localtz_override = pytz.timezone("America/Chicago")
+        patch_vt_module()
+        test_datetime_tz.patch_datetime_module()
+
+    def teardown(self):
+        VirtualTime.disable()
+        datetime.datetime.localtz_override = None
+        unpatch_vt_module()
+        test_datetime_tz.unpatch_datetime_module()
+
+
+
+
+    def test_offset(self):
+        """Make sure the offset is correct when using the localtz override"""
+        localdatetime = datetime.datetime(2014,03,9,1,45,0)
+        VirtualTime.set_local_datetime(localdatetime)
+        self.runTests(localdatetime)
+        localdatetime = datetime.datetime(2014,03,9,2,45,0)
+        VirtualTime.set_local_datetime(localdatetime)
+        self.runTests(localdatetime)
+        localdatetime = datetime.datetime(2014,03,9,3,45,0)
+        VirtualTime.set_local_datetime(localdatetime)
+        self.runTests(localdatetime)
+        localdatetime = datetime.datetime(2014,11,2,0,45,0)
+        VirtualTime.set_local_datetime(localdatetime)
+        self.runTests(localdatetime)
+        localdatetime = datetime.datetime(2014,11,2,1,45,0)
+        VirtualTime.set_local_datetime(localdatetime)
+        self.runTests(localdatetime)
+        localdatetime = datetime.datetime(2014,11,2,2,45,0)
+        VirtualTime.set_local_datetime(localdatetime)
+        self.runTests(localdatetime)
+        #print datetime_tz.datetime_tz.now(), datetime.datetime.now()
+        #print datetime_tz.datetime_tz.utcnow(), datetime.datetime.utcnow()
+
+        assert 1 == 0
+
+    def runTests(self,localdatetime):
+        tz = datetime.datetime.localtz_override
+        print "now"
+        assert self.close_enough(datetime.datetime.now(), localdatetime)
+        utcnow = datetime_tz.datetime_tz.utcnow()
+        print "utcnow"
+        assert self.close_enough(utcnow, tz.localize(localdatetime))
+        now = datetime_tz.datetime_tz.now()
+        print "_tznow"
+        assert self.close_enough(now, tz.localize(localdatetime))
+
+    def close_enough(self,dt,dt1):
+        print dt,"\t", dt1
+        return (dt - dt1) < datetime.timedelta(seconds=1)
