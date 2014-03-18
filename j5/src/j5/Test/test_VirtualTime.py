@@ -675,8 +675,6 @@ class TestVirtualDatetimeOffset:
         #print datetime_tz.datetime_tz.now(), datetime.datetime.now()
         #print datetime_tz.datetime_tz.utcnow(), datetime.datetime.utcnow()
 
-        assert 1 == 0
-
     def runTests(self,localdatetime):
         tz = datetime.datetime.localtz_override
         print "now"
