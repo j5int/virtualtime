@@ -7,7 +7,6 @@ import datetime_tz as base_datetime_tz
 assert issubclass(base_datetime_tz.datetime_tz, patched_datetime_type), 'The base datetime_tz package must not be imported before virtualtime'
 
 from datetime_tz import localize, get_naive, localtz, localtz_name, localtz_set, require_timezone, detect_timezone, iterate
-from datetime_tz import win32timezone_to_en, download_cldr_win32tz_map_xml, create_win32tz_map, update_stored_win32tz_map
 
 class datetime_tz(base_datetime_tz.datetime_tz):
 
@@ -40,3 +39,6 @@ class datetime_tz(base_datetime_tz.datetime_tz):
     if isinstance(other, patched_datetime_type) and other.tzinfo is None:
         other = localize(other)
     return super(datetime_tz, self).__ne__(other)
+
+__all__ = ['datetime_tz', 'base_datetime_tz', 'detect_timezone', 'iterate', 'localtz',
+    'localtz_set', 'localtz_name', 'timedelta', 'get_naive', 'require_timezone']
