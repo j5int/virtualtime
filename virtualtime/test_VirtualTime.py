@@ -183,11 +183,11 @@ class RealTimeBase(object):
 
     def test_datetime_tz_now(self):
         """tests that real time is still happening in the datetime_tz module"""
-        check_real_time_function(datetime_tz.datetime_tz.now, "virtualtime.vt_datetime_tz.datetime_tz.now()", "virtualtime.vt_datetime_tz")
+        check_real_time_function(datetime_tz.datetime_tz.now, "virtualtime.datetime_tz.datetime_tz.now()", "virtualtime.datetime_tz")
 
     def test_datetime_tz_utcnow(self):
         """tests that real time is still happening in the datetime_tz module"""
-        check_real_time_function(datetime_tz.datetime_tz.utcnow, "virtualtime.vt_datetime_tz.datetime_tz.utcnow()", "virtualtime.vt_datetime_tz")
+        check_real_time_function(datetime_tz.datetime_tz.utcnow, "virtualtime.datetime_tz.datetime_tz.utcnow()", "virtualtime.datetime_tz")
 
 class TestUnpatchedRealTime(RealTimeBase, RunUnpatched):
     """Tests for real time functions when VirtualTime is disabled"""
