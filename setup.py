@@ -21,6 +21,6 @@ setup(
         'Topic :: Software Development :: Libraries :: Python Modules'
     ],
     extras_require = {
-        'tests':  ["nose", 'j5.datetime_tz', 'j5.Test'],
+        'tests':  ["nose", 'j5.datetime_tz', 'j5.Test', 'decorator'],
         }
 )
