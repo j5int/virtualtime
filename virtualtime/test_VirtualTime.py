@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 from virtualtime import VirtualTime
-from virtualtime import vt_datetime_tz as datetime_tz
+from virtualtime import datetime_tz
 from virtualtime import test_vt_datetime_tz
 import datetime
 import time

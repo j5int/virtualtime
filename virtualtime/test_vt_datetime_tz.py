@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from virtualtime import vt_datetime_tz as datetime_tz
+from virtualtime import datetime_tz
 import datetime
 import pytz
 
