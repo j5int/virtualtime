@@ -1,9 +1,9 @@
 from setuptools import setup
 
 setup(
-    name='j5.VirtualTime',
+    name='virtualtime',
     version='1.0',
-    packages=['j5', 'j5.Test'],
+    packages=['virtualtime'],
     license='Apache Software License',
     description='Implements a system for simulating a virtual time.',
     long_description=open('README.md').read(),
@@ -20,7 +20,8 @@ setup(
         'Programming Language :: Python :: 2 :: Only',
         'Topic :: Software Development :: Libraries :: Python Modules'
     ],
+    install_requires = ['python-datetime-tz'],
     extras_require = {
-        'tests':  ["nose", 'j5.datetime_tz', 'j5.Test', 'decorator'],
+        'tests':  ["nose", 'decorator'],
         }
 )
