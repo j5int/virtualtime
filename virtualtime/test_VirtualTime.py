@@ -1,9 +1,8 @@
 #!/usr/bin/env python
 
-from j5.Test import VirtualTime
-from j5.Test import Utils
-from j5.OS import datetime_tz
-from j5.OS import test_datetime_tz
+from virtualtime import VirtualTime
+from virtualtime import vt_datetime_tz as datetime_tz
+from virtualtime import test_vt_datetime_tz
 import datetime
 import time
 import pytz
@@ -184,11 +183,11 @@ class RealTimeBase(object):
 
     def test_datetime_tz_now(self):
         """tests that real time is still happening in the datetime_tz module"""
-        check_real_time_function(datetime_tz.datetime_tz.now, "j5.OS.datetime_tz.datetime_tz.now()", "j5.OS.datetime_tz")
+        check_real_time_function(datetime_tz.datetime_tz.now, "virtualtime.vt_datetime_tz.datetime_tz.now()", "virtualtime.vt_datetime_tz")
 
     def test_datetime_tz_utcnow(self):
         """tests that real time is still happening in the datetime_tz module"""
-        check_real_time_function(datetime_tz.datetime_tz.utcnow, "j5.OS.datetime_tz.datetime_tz.utcnow()", "j5.OS.datetime_tz")
+        check_real_time_function(datetime_tz.datetime_tz.utcnow, "virtualtime.vt_datetime_tz.datetime_tz.utcnow()", "virtualtime.vt_datetime_tz")
 
 class TestUnpatchedRealTime(RealTimeBase, RunUnpatched):
     """Tests for real time functions when VirtualTime is disabled"""
@@ -402,7 +401,6 @@ class TestDisabledSleep(SleepBase, RunUnpatched):
     pass
 
 class TestSleep(SleepBase, RunPatched):
-    @Utils.if_long_test_run()
     def test_many_parallel_sleeps(self):
         """Tests that sleep comes back quicker than normal when time is advanced, and that this works with lots of threads when repeated many times"""
         LOOPS = 100
@@ -445,7 +443,6 @@ class TestFastForward(RunPatched):
         # depends on how long the stop event takes?
         assert (not offsets[11:]) or offsets[11:] == [0]
 
-    @Utils.if_long_test_run()
     @restore_time_after
     def test_fast_forward_time_long(self):
         """Test that fast forwarding the time a long way works properly"""
@@ -641,13 +638,13 @@ class TestVirtualDatetimeOffset:
         VirtualTime.enable()
         datetime.datetime.localtz_override = pytz.timezone("America/Chicago")
         patch_vt_module()
-        test_datetime_tz.patch_datetime_module()
+        test_vt_datetime_tz.patch_datetime_module()
 
     def teardown(self):
         VirtualTime.disable()
         datetime.datetime.localtz_override = None
         unpatch_vt_module()
-        test_datetime_tz.unpatch_datetime_module()
+        test_vt_datetime_tz.unpatch_datetime_module()
 
 
 
