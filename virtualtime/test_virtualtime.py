@@ -2,7 +2,7 @@
 
 import virtualtime
 from virtualtime import datetime_tz
-from virtualtime import test_vt_datetime_tz
+from virtualtime.datetime_tz import test_datetime_tz
 import datetime
 import time
 import pytz
@@ -638,13 +638,13 @@ class TestVirtualDatetimeOffset:
         virtualtime.enable()
         datetime.datetime.localtz_override = pytz.timezone("America/Chicago")
         patch_vt_module()
-        test_vt_datetime_tz.patch_datetime_module()
+        test_datetime_tz.patch_datetime_module()
 
     def teardown(self):
         virtualtime.disable()
         datetime.datetime.localtz_override = None
         unpatch_vt_module()
-        test_vt_datetime_tz.unpatch_datetime_module()
+        test_datetime_tz.unpatch_datetime_module()
 
 
 
