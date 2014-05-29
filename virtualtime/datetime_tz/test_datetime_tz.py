@@ -4,6 +4,10 @@ from virtualtime import datetime_tz
 import datetime
 import pytz
 
+def test_type_of_now_makes_sense():
+    n = datetime_tz.datetime_tz.now()
+    assert isinstance(n, datetime_tz.datetime_tz)
+
 def test_compare_tz_first():
     a = datetime.datetime(2012,3,4,1,2,3)
     b = datetime_tz.datetime_tz(2012,3,4,1,2,3)

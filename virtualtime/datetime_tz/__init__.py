@@ -6,7 +6,8 @@ patched_datetime_type = virtualtime._original_datetime_type
 import datetime_tz as base_datetime_tz
 assert issubclass(base_datetime_tz.datetime_tz, patched_datetime_type), 'The base datetime_tz package must not be imported before virtualtime'
 
-from datetime_tz import *
+from datetime_tz import detect_timezone, iterate, localtz
+from datetime_tz import localtz_set, timedelta, localize, get_naive, localtz_name, require_timezone
 
 class datetime_tz(base_datetime_tz.datetime_tz):
 
