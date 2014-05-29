@@ -489,6 +489,17 @@ def unpatch_datetime_module():
     _original_datetime_module.datetime.now = _original_datetime_now
     _original_datetime_module.datetime.utcnow = _original_datetime_utcnow
 
+raw_time = _original_time
+raw_datetime = _underlying_datetime_type
+
+def is_datetime_instance(value):
+    """
+    It is possible for there to be some datetime instances in the system that are subclasses of the
+    unpatched datetime class - either created before it was patched, or created in C code in some
+    tricksy way (for example, some dates coming from databases end up like this)
+    """
+    return isinstance(value, raw_datetime)
+
 def enabled():
     """Checks whether virtual time has been enabled by examing modules - returns a ValueError if in an inconsistent state"""
     check_functions = [
