@@ -42,4 +42,4 @@ class datetime_tz(base_datetime_tz.datetime_tz):
     return super(datetime_tz, self).__ne__(other)
 
 __all__ = ['datetime_tz', 'base_datetime_tz', 'detect_timezone', 'iterate', 'localtz',
-    'localtz_set', 'localtz_name', 'timedelta', 'get_naive', 'require_timezone']
+    'localtz_set', 'localtz_name', 'timedelta', 'get_naive', 'require_timezone', 'localize']
