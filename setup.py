@@ -7,7 +7,7 @@ setup(
     license='Apache License, Version 2.0',
     description='Implements a system for simulating a virtual time.',
     long_description=open('README.md').read(),
-    url='http://www.sjoft.com/',
+    url='http://www.sjsoft.com/',
     author='St James Software',
     author_email='support@sjsoft.com',
     classifiers=[
