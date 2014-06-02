@@ -14,6 +14,7 @@ import decorator
 import threading
 import logging
 import datetime
+from nose.plugins.attrib import attr
 
 
 def outside(code_str, *import_modules):
@@ -401,6 +402,7 @@ class TestDisabledSleep(SleepBase, RunUnpatched):
     pass
 
 class TestSleep(SleepBase, RunPatched):
+    @attr('long_running')
     def test_many_parallel_sleeps(self):
         """Tests that sleep comes back quicker than normal when time is advanced, and that this works with lots of threads when repeated many times"""
         LOOPS = 100
@@ -443,6 +445,7 @@ class TestFastForward(RunPatched):
         # depends on how long the stop event takes?
         assert (not offsets[11:]) or offsets[11:] == [0]
 
+    @attr('long_running')
     @restore_time_after
     def test_fast_forward_time_long(self):
         """Test that fast forwarding the time a long way works properly"""
