@@ -41,5 +41,18 @@ class datetime_tz(base_datetime_tz.datetime_tz):
         other = localize(other)
     return super(datetime_tz, self).__ne__(other)
 
+def localize(dt, force_to_local=True):
+    """Localize a datetime to the local timezone
+
+    If dt is naive, returns the same datetime with the local timezone
+    Else, uses astimezone to convert"""
+    dt = base_datetime_tz.localize(dt, force_to_local)
+    if isinstance(dt, base_datetime_tz.datetime_tz) and not isinstance(dt, datetime_tz):
+        dt = datetime_tz(dt)
+    return dt
+
+datetime_tz.min = datetime_tz(base_datetime_tz.datetime_tz.min)
+datetime_tz.max = datetime_tz(base_datetime_tz.datetime_tz.max)
+
 __all__ = ['datetime_tz', 'base_datetime_tz', 'detect_timezone', 'iterate', 'localtz',
     'localtz_set', 'localtz_name', 'timedelta', 'get_naive', 'require_timezone', 'localize']
