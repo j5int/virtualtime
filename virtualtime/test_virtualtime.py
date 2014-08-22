@@ -586,19 +586,41 @@ class TestInheritance(object):
     def test_switching_values(self):
         now = datetime_tz.datetime_tz.now()
         assert isinstance(now, datetime.datetime)
+        assert isinstance(now, datetime_tz.datetime_tz)
         later = now + datetime.timedelta(hours=1)
         assert isinstance(later, datetime.datetime)
+        assert isinstance(later, datetime_tz.datetime_tz)
         start = datetime.datetime.combine(now.date(), now.time())
         assert isinstance(start, datetime.datetime)
-        assert datetime_tz.localize(start) == now
+        local_start = datetime_tz.localize(start)
+        assert local_start == now
+        assert isinstance(local_start, datetime_tz.datetime_tz)
+        start_tz = datetime_tz.datetime_tz.combine(now.date(), now.time(), datetime_tz.localtz())
+        assert isinstance(start_tz, datetime_tz.datetime_tz)
+        local_start_tz = datetime_tz.localize(start_tz)
+        assert local_start_tz == now
+        assert isinstance(local_start_tz, datetime_tz.datetime_tz)
+        assert isinstance(datetime_tz.datetime_tz.min, datetime_tz.datetime_tz)
+        assert isinstance(datetime_tz.datetime_tz.max, datetime_tz.datetime_tz)
         virtualtime.enable()
         now = datetime_tz.datetime_tz.now()
         assert isinstance(now, datetime.datetime)
+        assert isinstance(now, datetime_tz.datetime_tz)
         later = now + datetime.timedelta(hours=1)
         assert isinstance(later, datetime.datetime)
+        assert isinstance(later, datetime_tz.datetime_tz)
         start = datetime.datetime.combine(now.date(), now.time())
         assert isinstance(start, datetime.datetime)
-        assert datetime_tz.localize(start) == now
+        local_start = datetime_tz.localize(start)
+        assert local_start == now
+        assert isinstance(local_start, datetime_tz.datetime_tz)
+        start_tz = datetime_tz.datetime_tz.combine(now.date(), now.time(), datetime_tz.localtz())
+        assert isinstance(start_tz, datetime_tz.datetime_tz)
+        local_start_tz = datetime_tz.localize(start_tz)
+        assert local_start_tz == now
+        assert isinstance(local_start_tz, datetime_tz.datetime_tz)
+        assert isinstance(datetime_tz.datetime_tz.min, datetime_tz.datetime_tz)
+        assert isinstance(datetime_tz.datetime_tz.max, datetime_tz.datetime_tz)
 
 _original_datetime_module = virtualtime._original_datetime_module
 _original_datetime_type = virtualtime._original_datetime_type
@@ -689,3 +711,4 @@ class TestVirtualDatetimeOffset:
     def close_enough(self,dt,dt1):
         print dt,"\t", dt1
         return (dt - dt1) < datetime.timedelta(seconds=1)
+
