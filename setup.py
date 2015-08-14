@@ -7,9 +7,9 @@ setup(
     license='Apache License, Version 2.0',
     description='Implements a system for simulating a virtual time.',
     long_description=open('README.md').read(),
-    url='http://www.sjsoft.com/',
-    author='St James Software',
-    author_email='support@sjsoft.com',
+    url='http://www.j5int.com/',
+    author='j5 International',
+    author_email='support@j5int.com',
     classifiers=[
         'Development Status :: 5 - Production/Stable',
         'License :: OSI Approved :: Apache Software License',
