@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='virtualtime',
-    version='1.3',
+    version='1.4',
     packages=['virtualtime', 'virtualtime.datetime_tz'],
     license='Apache License, Version 2.0',
     description='Implements a system for simulating a virtual time.',
@@ -21,9 +21,8 @@ setup(
         'Topic :: Software Development :: Libraries :: Python Modules',
         'Topic :: Software Development :: Testing',
     ],
-    install_requires = ['python-datetime-tz == 0.2-j5p1'],
+    install_requires = ['python-datetime-tz >= 0.5'],
     extras_require = {
         'tests':  ["nose", 'decorator'],
         },
-    dependency_links = ["https://github.com/st-james-software/python-datetime-tz/archive/v0.2-j5p1.zip#egg=python-datetime-tz-0.2-j5p1"]
 )
