@@ -52,6 +52,18 @@ _fast_forward_delay_events = WeakSet()
 _in_skip_time_change = False
 _time_offset = 0
 
+def _findall(text, substr):
+     # Also finds overlaps
+     sites = []
+     i = 0
+     while 1:
+         j = text.find(substr, i)
+         if j == -1:
+             break
+         sites.append(j)
+         i=j+1
+     return sites
+
 def notify_on_change(event):
     """adds the given event to a set that will be notified if the virtual time changes (does not need to be removed, as it's a weak ref)"""
     _virtual_time_state.acquire()
@@ -161,6 +173,36 @@ class datetime(_original_datetime_module.datetime):
             dt = _underlying_datetime_type.__new__(cls, *args, **kwargs)
         newargs = list(dt.timetuple()[0:6])+[dt.microsecond, dt.tzinfo]
         return _underlying_datetime_type.__new__(cls, *newargs)
+
+    def strftime(self, format_str):
+        """Adjusted version of datetime's strftime that handles dates before 1900"""
+        if hasattr(self, "year") and self.year < 1900:
+            # Python datetime doesn't support formatting dates before 1900.
+            # Since the Gregorian calendar has a cycle of 400 years, flip the date into the future
+            # and adjust the year directly in the format string
+            year = self.year
+            while year < 1900: year += 400
+            d1 = self.replace(year=year)
+            d2 = self.replace(year=year+400)
+            s1 = d1.strftime(format_str)
+            s2 = d2.strftime(format_str)
+            ys1 = "%04d" % year
+            ys2 = "%04d" % (year + 400)
+            y = "%d" % self.year
+
+            p1 = _findall(s1, ys1)
+            p2 = _findall(s2, ys2)
+            sites = [site for site in p1 if site in p2]
+            rs1 = list(s1)
+            rs2 = list(s2)
+            for site in sites:
+                rs1[site:site+len(ys1)] = list(y)
+                rs2[site:site+len(ys2)] = list(y)
+            if rs1 != rs2:
+                raise ValueError("Error trying to calculate strftime(%r, %s): unexpected underlying values" % (self, format_str))
+            s = "".join(rs1)
+            return s
+        return _underlying_datetime_type.strftime(self, format_str)
 
     def astimezone(self, tzinfo):
         d = _underlying_datetime_type.astimezone(self, tzinfo)

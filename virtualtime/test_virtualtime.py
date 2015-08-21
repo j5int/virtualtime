@@ -190,6 +190,24 @@ class RealTimeBase(object):
         """tests that real time is still happening in the datetime_tz module"""
         check_real_time_function(datetime_tz.datetime_tz.utcnow, "virtualtime.datetime_tz.datetime_tz.utcnow()", "virtualtime.datetime_tz")
 
+    def test_strftime_pre_1900(self):
+        """tests that we can strftime on times before 1900 (patching 2.7 bug)"""
+        # half way through the cannons, on the battle day
+        overture_date = datetime_tz.datetime_tz(1812, 9, 10, 12, 7, 30, tzinfo=pytz.timezone("Europe/Moscow"))
+        overture_datestr = overture_date.strftime("%Y-%m-%d %H:%M:%S+%Z")
+        assert overture_datestr == "1812-09-10 12:07:30+MSK"
+        overture_timetuple = overture_date.utctimetuple()
+        overture_timestr = time.strftime("%Y-%m-%d %H:%M:%S", overture_timetuple)
+        assert overture_timestr == "1812-09-10 09:37:30"
+        # also test after 1900 to make sure that's as before
+        renzetti_date = overture_date.replace(year=1912)
+        renzetti_datestr = renzetti_date.strftime("%Y-%m-%d %H:%M:%S+%Z")
+        assert renzetti_datestr == "1912-09-10 12:07:30+MMT"
+        renzetti_timetuple = renzetti_date.utctimetuple()
+        renzetti_timestr = time.strftime("%Y-%m-%d %H:%M:%S", renzetti_timetuple)
+        assert renzetti_timestr == "1912-09-10 09:37:30"
+
+
 class TestUnpatchedRealTime(RealTimeBase, RunUnpatched):
     """Tests for real time functions when virtualtime is disabled"""
 
