@@ -38,7 +38,7 @@ _original_asctime = time.asctime
 _original_ctime = time.ctime
 _original_gmtime = time.gmtime
 _original_localtime = time.localtime
-_original_strftime = time.strftime
+_underlying_strftime = time.strftime
 _original_sleep = time.sleep
 
 _virtual_time_state = threading.Condition()
@@ -71,6 +71,25 @@ def _repair_year(s1, s2, y1, y2, year):
         i = f + 4
     t += s1[i:]
     return t
+
+def _fixed_strftime(format, when_tuple=None):
+    """Overlayed form of time.strftime() that allows dates before 1900"""
+    if when_tuple is None:
+        return _fixed_strftime(format)
+    elif when_tuple[0] < 1900:
+        # Python datetime doesn't support formatting dates before 1900.
+        # Since the Gregorian calendar has a cycle of 400 years, flip the date into the future
+        # and adjust the year directly in the format string
+        year = orig_year = when_tuple[0]
+        while year < 1900: year += 400
+        d1 = (year,) + when_tuple[1:]
+        d2 = (year+400,)+ when_tuple[1:]
+        s1 = _underlying_strftime(format, d1)
+        s2 = _underlying_strftime(format, d2)
+        return _repair_year(s1, s2, year, year+400, orig_year)
+    return _underlying_strftime(format, when_tuple)
+
+time.strftime = _fixed_strftime
 
 def notify_on_change(event):
     """adds the given event to a set that will be notified if the virtual time changes (does not need to be removed, as it's a weak ref)"""
@@ -150,7 +169,7 @@ def _virtual_localtime(when=None):
 
 def _virtual_strftime(format, when_tuple=None):
     """Overlayed form of time.strftime() that adds _time_offset"""
-    return _original_strftime(format, _virtual_localtime() if when_tuple is None else when_tuple)
+    return _fixed_strftime(format, _virtual_localtime() if when_tuple is None else when_tuple)
 
 def _virtual_sleep(seconds):
     """Overlayed form of time.sleep() that responds to changes to the virtual time"""
@@ -184,7 +203,7 @@ class datetime(_original_datetime_module.datetime):
 
     def strftime(self, format_str):
         """Adjusted version of datetime's strftime that handles dates before 1900"""
-        if hasattr(self, "year") and self.year < 1900:
+        if getattr(self, "year", 2000) < 1900:
             # Python datetime doesn't support formatting dates before 1900.
             # Since the Gregorian calendar has a cycle of 400 years, flip the date into the future
             # and adjust the year directly in the format string
@@ -511,7 +530,7 @@ def unpatch_time_module():
     time.ctime = _original_ctime
     time.gmtime = _original_gmtime
     time.localtime = _original_localtime
-    time.strftime = _original_strftime
+    time.strftime = _fixed_strftime
     time.sleep = _original_sleep
 
 def patch_datetime_module():
@@ -543,7 +562,7 @@ def enabled():
         ("time.ctime",        time.ctime,     _original_ctime,     _virtual_ctime),
         ("time.gmtime",       time.gmtime,    _original_gmtime,    _virtual_gmtime),
         ("time.localtime",    time.localtime, _original_localtime, _virtual_localtime),
-        ("time.strftime",     time.strftime,  _original_strftime,  _virtual_strftime),
+        ("time.strftime",     time.strftime,  _fixed_strftime,  _virtual_strftime),
         ("time.sleep",        time.sleep,     _original_sleep,     _virtual_sleep),
         ("datetime.datetime.now",    _original_datetime_module.datetime.now,    _original_datetime_now,    _virtual_datetime_now),
         ("datetime.datetime.utcnow", _original_datetime_module.datetime.utcnow, _original_datetime_utcnow, _virtual_datetime_utcnow),
