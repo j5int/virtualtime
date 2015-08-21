@@ -207,6 +207,15 @@ class RealTimeBase(object):
         renzetti_timestr = time.strftime("%Y-%m-%d %H:%M:%S", renzetti_timetuple)
         assert renzetti_timestr == "1912-09-10 09:37:30"
 
+    def test_repair_year(self):
+        assert virtualtime._repair_year("2014-01-02 15:13:56", "2414-01-02 15:13:56", 2014, 2414, 14) == \
+               "14-01-02 15:13:56"
+        assert virtualtime._repair_year("2214-14-22 14:26:56.22141420", "2614-14-22 14:26:56.22141420", 2214, 2614, 1414) == \
+               "1414-14-22 14:26:56.22141420"
+        assert virtualtime._repair_year("2004-14-22 14:26:56.22141420", "2404-14-22 14:26:56.22141420", 2004, 2404, 4) == \
+               "4-14-22 14:26:56.22141420"
+
+
 
 class TestUnpatchedRealTime(RealTimeBase, RunUnpatched):
     """Tests for real time functions when virtualtime is disabled"""

@@ -52,17 +52,25 @@ _fast_forward_delay_events = WeakSet()
 _in_skip_time_change = False
 _time_offset = 0
 
-def _findall(text, substr):
-     # Also finds overlaps
-     sites = []
-     i = 0
-     while 1:
-         j = text.find(substr, i)
-         if j == -1:
-             break
-         sites.append(j)
-         i=j+1
-     return sites
+def _repair_year(s1, s2, y1, y2, year):
+    """takes two strings differing only by year, and replaces their years (which must be 4-digit) with a new one"""
+    ys1 = "%04d" % y1
+    ys2 = "%04d" % y2
+    ys = "%d" % year
+    t = ""
+    i = 0
+    while True:
+        f = s1.find(ys1, i)
+        if f == -1:
+            break
+        if s2[f:f+4] != ys2:
+            t += s1[i:f+4]
+            i = f + 4
+            continue
+        t += s1[i:f] + ys
+        i = f + 4
+    t += s1[i:]
+    return t
 
 def notify_on_change(event):
     """adds the given event to a set that will be notified if the virtual time changes (does not need to be removed, as it's a weak ref)"""
@@ -184,24 +192,9 @@ class datetime(_original_datetime_module.datetime):
             while year < 1900: year += 400
             d1 = self.replace(year=year)
             d2 = self.replace(year=year+400)
-            s1 = d1.strftime(format_str)
-            s2 = d2.strftime(format_str)
-            ys1 = "%04d" % year
-            ys2 = "%04d" % (year + 400)
-            y = "%d" % self.year
-
-            p1 = _findall(s1, ys1)
-            p2 = _findall(s2, ys2)
-            sites = [site for site in p1 if site in p2]
-            rs1 = list(s1)
-            rs2 = list(s2)
-            for site in sites:
-                rs1[site:site+len(ys1)] = list(y)
-                rs2[site:site+len(ys2)] = list(y)
-            if rs1 != rs2:
-                raise ValueError("Error trying to calculate strftime(%r, %s): unexpected underlying values" % (self, format_str))
-            s = "".join(rs1)
-            return s
+            s1 = _underlying_datetime_type.strftime(d1, format_str)
+            s2 = _underlying_datetime_type.strftime(d2, format_str)
+            return _repair_year(s1, s2, year, year+400, self.year)
         return _underlying_datetime_type.strftime(self, format_str)
 
     def astimezone(self, tzinfo):
