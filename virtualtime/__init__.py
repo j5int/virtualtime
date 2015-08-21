@@ -75,7 +75,7 @@ def _repair_year(s1, s2, y1, y2, year):
 def _fixed_strftime(format, when_tuple=None):
     """Overlayed form of time.strftime() that allows dates before 1900"""
     if when_tuple is None:
-        return _fixed_strftime(format)
+        return _underlying_strftime(format)
     elif when_tuple[0] < 1900:
         # Python datetime doesn't support formatting dates before 1900.
         # Since the Gregorian calendar has a cycle of 400 years, flip the date into the future
@@ -89,7 +89,18 @@ def _fixed_strftime(format, when_tuple=None):
         return _repair_year(s1, s2, year, year+400, orig_year)
     return _underlying_strftime(format, when_tuple)
 
-time.strftime = _fixed_strftime
+try:
+    _underlying_strftime("%Y-%m-%d", (1800,1,1,0,0,0,2,1,-1))
+    _has_pre_1900_bug = False
+except ValueError:
+    _has_pre_1900_bug = True
+
+if _has_pre_1900_bug:
+    _original_strftime = _fixed_strftime
+else:
+    _original_strftime = _underlying_strftime
+
+time.strftime = _original_strftime
 
 def notify_on_change(event):
     """adds the given event to a set that will be notified if the virtual time changes (does not need to be removed, as it's a weak ref)"""
@@ -169,7 +180,7 @@ def _virtual_localtime(when=None):
 
 def _virtual_strftime(format, when_tuple=None):
     """Overlayed form of time.strftime() that adds _time_offset"""
-    return _fixed_strftime(format, _virtual_localtime() if when_tuple is None else when_tuple)
+    return _original_strftime(format, _virtual_localtime() if when_tuple is None else when_tuple)
 
 def _virtual_sleep(seconds):
     """Overlayed form of time.sleep() that responds to changes to the virtual time"""
@@ -201,7 +212,7 @@ class datetime(_original_datetime_module.datetime):
         newargs = list(dt.timetuple()[0:6])+[dt.microsecond, dt.tzinfo]
         return _underlying_datetime_type.__new__(cls, *newargs)
 
-    def strftime(self, format_str):
+    def _fixed_strftime(self, format_str):
         """Adjusted version of datetime's strftime that handles dates before 1900"""
         if getattr(self, "year", 2000) < 1900:
             # Python datetime doesn't support formatting dates before 1900.
@@ -215,6 +226,9 @@ class datetime(_original_datetime_module.datetime):
             s2 = _underlying_datetime_type.strftime(d2, format_str)
             return _repair_year(s1, s2, year, year+400, self.year)
         return _underlying_datetime_type.strftime(self, format_str)
+
+    if _has_pre_1900_bug:
+        strftime = _fixed_strftime
 
     def astimezone(self, tzinfo):
         d = _underlying_datetime_type.astimezone(self, tzinfo)
@@ -530,7 +544,7 @@ def unpatch_time_module():
     time.ctime = _original_ctime
     time.gmtime = _original_gmtime
     time.localtime = _original_localtime
-    time.strftime = _fixed_strftime
+    time.strftime = _original_strftime
     time.sleep = _original_sleep
 
 def patch_datetime_module():
@@ -562,7 +576,7 @@ def enabled():
         ("time.ctime",        time.ctime,     _original_ctime,     _virtual_ctime),
         ("time.gmtime",       time.gmtime,    _original_gmtime,    _virtual_gmtime),
         ("time.localtime",    time.localtime, _original_localtime, _virtual_localtime),
-        ("time.strftime",     time.strftime,  _fixed_strftime,  _virtual_strftime),
+        ("time.strftime",     time.strftime,  _original_strftime,  _virtual_strftime),
         ("time.sleep",        time.sleep,     _original_sleep,     _virtual_sleep),
         ("datetime.datetime.now",    _original_datetime_module.datetime.now,    _original_datetime_now,    _virtual_datetime_now),
         ("datetime.datetime.utcnow", _original_datetime_module.datetime.utcnow, _original_datetime_utcnow, _virtual_datetime_utcnow),

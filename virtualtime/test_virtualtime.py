@@ -703,13 +703,13 @@ class TestVirtualDatetimeOffset:
 
     def test_offset(self):
         """Make sure the offset is correct when using the localtz override"""
-        localdatetime = datetime.datetime(2014,03,9,1,45,0)
+        localdatetime = datetime.datetime(2014,3,9,1,45,0)
         virtualtime.set_local_datetime(localdatetime)
         self.runTests(localdatetime)
-        localdatetime = datetime.datetime(2014,03,9,2,45,0)
+        localdatetime = datetime.datetime(2014,3,9,2,45,0)
         virtualtime.set_local_datetime(localdatetime)
         self.runTests(localdatetime)
-        localdatetime = datetime.datetime(2014,03,9,3,45,0)
+        localdatetime = datetime.datetime(2014,3,9,3,45,0)
         virtualtime.set_local_datetime(localdatetime)
         self.runTests(localdatetime)
         localdatetime = datetime.datetime(2014,11,2,0,45,0)
@@ -726,16 +726,16 @@ class TestVirtualDatetimeOffset:
 
     def runTests(self,localdatetime):
         tz = datetime.datetime.localtz_override
-        print "now"
+        print ("now")
         assert self.close_enough(datetime.datetime.now(), localdatetime)
         utcnow = datetime_tz.datetime_tz.utcnow()
-        print "utcnow"
+        print ("utcnow")
         assert self.close_enough(utcnow, tz.localize(localdatetime))
         now = datetime_tz.datetime_tz.now()
-        print "_tznow"
+        print ("_tznow")
         assert self.close_enough(now, tz.localize(localdatetime))
 
     def close_enough(self,dt,dt1):
-        print dt,"\t", dt1
+        print (dt,"\t", dt1)
         return (dt - dt1) < datetime.timedelta(seconds=1)
 

@@ -71,14 +71,14 @@ class TestDST():
         datetime.datetime.localtz_override = pytz.timezone("America/Chicago")
         exc = pytz.NonExistentTimeError
 
-        assert self.runTest(datetime_tz.datetime_tz, exc, True, 2014, 03, 9, 1, 10, 0, 0)
-        assert self.runTest(datetime_tz.localize, exc, True, datetime.datetime(2014, 03, 9, 1, 10, 0, 0))
+        assert self.runTest(datetime_tz.datetime_tz, exc, True, 2014, 3, 9, 1, 10, 0, 0)
+        assert self.runTest(datetime_tz.localize, exc, True, datetime.datetime(2014, 3, 9, 1, 10, 0, 0))
 
-        assert self.runTest(datetime_tz.datetime_tz, exc, False, 2014, 03, 9, 2, 10, 0, 0)
-        assert self.runTest(datetime_tz.localize, exc, False, datetime.datetime(2014, 03, 9, 2, 10, 0, 0))
+        assert self.runTest(datetime_tz.datetime_tz, exc, False, 2014, 3, 9, 2, 10, 0, 0)
+        assert self.runTest(datetime_tz.localize, exc, False, datetime.datetime(2014, 3, 9, 2, 10, 0, 0))
 
-        assert self.runTest(datetime_tz.datetime_tz, exc, True, 2014, 03, 9, 3, 10, 0, 0)
-        assert self.runTest(datetime_tz.localize, exc, True, datetime.datetime(2014, 03, 9, 3, 10, 0, 0))
+        assert self.runTest(datetime_tz.datetime_tz, exc, True, 2014, 3, 9, 3, 10, 0, 0)
+        assert self.runTest(datetime_tz.localize, exc, True, datetime.datetime(2014, 3, 9, 3, 10, 0, 0))
 
 
     def test_DST_ambiguous_hour(self):
