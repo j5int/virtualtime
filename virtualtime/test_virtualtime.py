@@ -206,6 +206,19 @@ class RealTimeBase(object):
         renzetti_timetuple = renzetti_date.utctimetuple()
         renzetti_timestr = time.strftime("%Y-%m-%d %H:%M:%S", renzetti_timetuple)
         assert renzetti_timestr == "1912-09-10 09:37:30"
+        # and let's handle the 0-99 and 100-999 cases that are different on different python versions
+        rufus_date = overture_date.replace(year=12)
+        rufus_datestr = rufus_date.strftime("%Y-%m-%d %H:%M:%S+%Z")
+        assert rufus_datestr == "12-09-10 12:07:30+MSK"
+        rufus_timetuple = rufus_date.utctimetuple()
+        rufus_timestr = time.strftime("%Y-%m-%d %H:%M:%S", rufus_timetuple)
+        assert rufus_timestr == "12-09-10 09:37:30"
+        ordono_date = overture_date.replace(year=912)
+        ordono_datestr = ordono_date.strftime("%Y-%m-%d %H:%M:%S+%Z")
+        assert ordono_datestr == "912-09-10 12:07:30+MSK"
+        ordono_timetuple = ordono_date.utctimetuple()
+        ordono_timestr = time.strftime("%Y-%m-%d %H:%M:%S", ordono_timetuple)
+        assert ordono_timestr == "912-09-10 09:37:30"
 
     def test_repair_year(self):
         assert virtualtime._repair_year("2014-01-02 15:13:56", "2414-01-02 15:13:56", 2014, 2414, 14) == \

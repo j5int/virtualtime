@@ -73,11 +73,11 @@ def _repair_year(s1, s2, y1, y2, year):
     return t
 
 def _fixed_strftime(format, when_tuple=None):
-    """Overlayed form of time.strftime() that allows dates before 1900"""
+    """Overlayed form of time.strftime() that allows dates before 1900 or 1000, if Python's is broken"""
     if when_tuple is None:
         return _underlying_strftime(format)
-    elif when_tuple[0] < 1900:
-        # Python datetime doesn't support formatting dates before 1900.
+    elif when_tuple[0] < _STRFTIME_MIN_YEAR:
+        # Python datetime doesn't support formatting dates before 1900 or 1000, depending on Python version.
         # Since the Gregorian calendar has a cycle of 400 years, flip the date into the future
         # and adjust the year directly in the format string
         year = orig_year = when_tuple[0]
@@ -89,13 +89,19 @@ def _fixed_strftime(format, when_tuple=None):
         return _repair_year(s1, s2, year, year+400, orig_year)
     return _underlying_strftime(format, when_tuple)
 
+_has_pre_1900_bug = _has_pre_1000_bug = True
+_STRFTIME_MIN_YEAR = 1900
 try:
-    _underlying_strftime("%Y-%m-%d", (1800,1,1,0,0,0,2,1,-1))
+    _underlying_strftime("%Y-%m-%d", (1800,1,1,0,0,0,2,1,0))
     _has_pre_1900_bug = False
+    _STRFTIME_MIN_YEAR = 1000
+    _underlying_strftime("%Y-%m-%d", (800,1,1,0,0,0,5,1,0))
+    _has_pre_1000_bug = False
+    _STRFTIME_MIN_YEAR = 0
 except ValueError:
-    _has_pre_1900_bug = True
+    pass
 
-if _has_pre_1900_bug:
+if _has_pre_1900_bug or _has_pre_1000_bug:
     _original_strftime = _fixed_strftime
 else:
     _original_strftime = _underlying_strftime
@@ -213,9 +219,9 @@ class datetime(_original_datetime_module.datetime):
         return _underlying_datetime_type.__new__(cls, *newargs)
 
     def _fixed_strftime(self, format_str):
-        """Adjusted version of datetime's strftime that handles dates before 1900"""
-        if getattr(self, "year", 2000) < 1900:
-            # Python datetime doesn't support formatting dates before 1900.
+        """Adjusted version of datetime's strftime that handles dates before 1900 or 1000, if python's is broken"""
+        if getattr(self, "year", 2000) < _STRFTIME_MIN_YEAR:
+            # Python datetime doesn't support formatting dates before 1900/1000 (depending on Python version).
             # Since the Gregorian calendar has a cycle of 400 years, flip the date into the future
             # and adjust the year directly in the format string
             year = self.year
@@ -227,7 +233,7 @@ class datetime(_original_datetime_module.datetime):
             return _repair_year(s1, s2, year, year+400, self.year)
         return _underlying_datetime_type.strftime(self, format_str)
 
-    if _has_pre_1900_bug:
+    if _has_pre_1900_bug or _has_pre_1000_bug:
         strftime = _fixed_strftime
 
     def astimezone(self, tzinfo):
