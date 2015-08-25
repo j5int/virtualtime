@@ -219,6 +219,20 @@ class RealTimeBase(object):
         ordono_timetuple = ordono_date.utctimetuple()
         ordono_timestr = time.strftime("%Y-%m-%d %H:%M:%S", ordono_timetuple)
         assert ordono_timestr == "912-09-10 09:37:30"
+        # just for fun, and to ensure year matching doesn't match the wrong stuff
+        repetitive_date = datetime_tz.datetime_tz(1111,11,11,11,11,11, tzinfo=pytz.UTC)
+        repetitive_datestr = repetitive_date.strftime("%d%Y%m%H%Y%M%S1%Y1%y")
+        assert repetitive_datestr == "11111111111111111111111111"
+        repetitive_timetuple = repetitive_date.utctimetuple()
+        repetitive_timestr = time.strftime("1%Y1%d%m%H%Y%M%S%Y%y", repetitive_timetuple)
+        assert repetitive_timestr == "11111111111111111111111111"
+        # broken with 4-char skip
+        broken_date = datetime_tz.datetime_tz(1119,11,19)
+        broken_datestr = broken_date.strftime("%d%Y")
+        assert broken_datestr == "191119"
+        broken_timetuple = broken_date.utctimetuple()
+        broken_timestr = time.strftime("%y%Y", broken_timetuple)
+        assert broken_timestr == "191119"
 
     def test_repair_year(self):
         assert virtualtime._repair_year("2014-01-02 15:13:56", "2414-01-02 15:13:56", 2014, 2414, 14) == \

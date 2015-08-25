@@ -64,8 +64,8 @@ def _repair_year(s1, s2, y1, y2, year):
         if f == -1:
             break
         if s2[f:f+4] != ys2:
-            t += s1[i:f+4]
-            i = f + 4
+            t += s1[i:f+1]
+            i = f + 1
             continue
         t += s1[i:f] + ys
         i = f + 4
