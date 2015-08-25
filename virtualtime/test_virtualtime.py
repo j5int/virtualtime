@@ -190,6 +190,60 @@ class RealTimeBase(object):
         """tests that real time is still happening in the datetime_tz module"""
         check_real_time_function(datetime_tz.datetime_tz.utcnow, "virtualtime.datetime_tz.datetime_tz.utcnow()", "virtualtime.datetime_tz")
 
+    def test_strftime_pre_1900(self):
+        """tests that we can strftime on times before 1900 (patching 2.7 bug)"""
+        # half way through the cannons, on the battle day
+        overture_date = datetime_tz.datetime_tz(1812, 9, 10, 12, 7, 30, tzinfo=pytz.timezone("Europe/Moscow"))
+        overture_datestr = overture_date.strftime("%Y-%m-%d %H:%M:%S+%Z")
+        assert overture_datestr == "1812-09-10 12:07:30+MSK"
+        overture_timetuple = overture_date.utctimetuple()
+        overture_timestr = time.strftime("%Y-%m-%d %H:%M:%S", overture_timetuple)
+        assert overture_timestr == "1812-09-10 09:37:30"
+        # also test after 1900 to make sure that's as before
+        renzetti_date = overture_date.replace(year=1912)
+        renzetti_datestr = renzetti_date.strftime("%Y-%m-%d %H:%M:%S+%Z")
+        assert renzetti_datestr == "1912-09-10 12:07:30+MMT"
+        renzetti_timetuple = renzetti_date.utctimetuple()
+        renzetti_timestr = time.strftime("%Y-%m-%d %H:%M:%S", renzetti_timetuple)
+        assert renzetti_timestr == "1912-09-10 09:37:30"
+        # and let's handle the 0-99 and 100-999 cases that are different on different python versions
+        rufus_date = overture_date.replace(year=12)
+        rufus_datestr = rufus_date.strftime("%Y-%m-%d %H:%M:%S+%Z")
+        assert rufus_datestr == "12-09-10 12:07:30+MSK"
+        rufus_timetuple = rufus_date.utctimetuple()
+        rufus_timestr = time.strftime("%Y-%m-%d %H:%M:%S", rufus_timetuple)
+        assert rufus_timestr == "12-09-10 09:37:30"
+        ordono_date = overture_date.replace(year=912)
+        ordono_datestr = ordono_date.strftime("%Y-%m-%d %H:%M:%S+%Z")
+        assert ordono_datestr == "912-09-10 12:07:30+MSK"
+        ordono_timetuple = ordono_date.utctimetuple()
+        ordono_timestr = time.strftime("%Y-%m-%d %H:%M:%S", ordono_timetuple)
+        assert ordono_timestr == "912-09-10 09:37:30"
+        # just for fun, and to ensure year matching doesn't match the wrong stuff
+        repetitive_date = datetime_tz.datetime_tz(1111,11,11,11,11,11, tzinfo=pytz.UTC)
+        repetitive_datestr = repetitive_date.strftime("%d%Y%m%H%Y%M%S1%Y1%y")
+        assert repetitive_datestr == "11111111111111111111111111"
+        repetitive_timetuple = repetitive_date.utctimetuple()
+        repetitive_timestr = time.strftime("1%Y1%d%m%H%Y%M%S%Y%y", repetitive_timetuple)
+        assert repetitive_timestr == "11111111111111111111111111"
+        # broken with 4-char skip
+        broken_date = datetime_tz.datetime_tz(1119,11,19)
+        broken_datestr = broken_date.strftime("%d%Y")
+        assert broken_datestr == "191119"
+        broken_timetuple = broken_date.utctimetuple()
+        broken_timestr = time.strftime("%y%Y", broken_timetuple)
+        assert broken_timestr == "191119"
+
+    def test_repair_year(self):
+        assert virtualtime._repair_year("2014-01-02 15:13:56", "2414-01-02 15:13:56", 2014, 2414, 14) == \
+               "14-01-02 15:13:56"
+        assert virtualtime._repair_year("2214-14-22 14:26:56.22141420", "2614-14-22 14:26:56.22141420", 2214, 2614, 1414) == \
+               "1414-14-22 14:26:56.22141420"
+        assert virtualtime._repair_year("2004-14-22 14:26:56.22141420", "2404-14-22 14:26:56.22141420", 2004, 2404, 4) == \
+               "4-14-22 14:26:56.22141420"
+
+
+
 class TestUnpatchedRealTime(RealTimeBase, RunUnpatched):
     """Tests for real time functions when virtualtime is disabled"""
 
@@ -676,13 +730,13 @@ class TestVirtualDatetimeOffset:
 
     def test_offset(self):
         """Make sure the offset is correct when using the localtz override"""
-        localdatetime = datetime.datetime(2014,03,9,1,45,0)
+        localdatetime = datetime.datetime(2014,3,9,1,45,0)
         virtualtime.set_local_datetime(localdatetime)
         self.runTests(localdatetime)
-        localdatetime = datetime.datetime(2014,03,9,2,45,0)
+        localdatetime = datetime.datetime(2014,3,9,2,45,0)
         virtualtime.set_local_datetime(localdatetime)
         self.runTests(localdatetime)
-        localdatetime = datetime.datetime(2014,03,9,3,45,0)
+        localdatetime = datetime.datetime(2014,3,9,3,45,0)
         virtualtime.set_local_datetime(localdatetime)
         self.runTests(localdatetime)
         localdatetime = datetime.datetime(2014,11,2,0,45,0)
@@ -699,16 +753,16 @@ class TestVirtualDatetimeOffset:
 
     def runTests(self,localdatetime):
         tz = datetime.datetime.localtz_override
-        print "now"
+        print ("now")
         assert self.close_enough(datetime.datetime.now(), localdatetime)
         utcnow = datetime_tz.datetime_tz.utcnow()
-        print "utcnow"
+        print ("utcnow")
         assert self.close_enough(utcnow, tz.localize(localdatetime))
         now = datetime_tz.datetime_tz.now()
-        print "_tznow"
+        print ("_tznow")
         assert self.close_enough(now, tz.localize(localdatetime))
 
     def close_enough(self,dt,dt1):
-        print dt,"\t", dt1
+        print (dt,"\t", dt1)
         return (dt - dt1) < datetime.timedelta(seconds=1)
 
