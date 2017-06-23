@@ -29,6 +29,19 @@ except ImportError as e:
       def wraps(f, *args, **kw):
           return f
 
+# Try and import numpy and pandas before patching datetime, else they get upset
+# Import errors are ignored so that this is safe to do when they are not present
+
+try:
+    import numpy
+except ImportError as e:
+    pass
+
+try:
+    import pandas
+except ImportError as e:
+    pass
+
 TIME_CHANGE_LOG_LEVEL = logging.CRITICAL
 MAX_CALLBACK_TIME = 1.0
 MAX_DELAY_TIME = 60.0

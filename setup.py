@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='virtualtime',
-    version='1.5',
+    version='1.6',
     packages=['virtualtime', 'virtualtime.datetime_tz'],
     license='Apache License, Version 2.0',
     description='Implements a system for simulating a virtual time.',
