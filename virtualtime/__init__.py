@@ -29,13 +29,8 @@ except ImportError as e:
       def wraps(f, *args, **kw):
           return f
 
-# Try and import numpy and pandas before patching datetime, else they get upset
+# Try and import pandas before patching datetime, else it gets upset
 # Import errors are ignored so that this is safe to do when they are not present
-
-try:
-    import numpy
-except ImportError as e:
-    pass
 
 try:
     import pandas
