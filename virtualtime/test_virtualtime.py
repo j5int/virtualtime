@@ -20,7 +20,10 @@ from nose.plugins.attrib import attr
 def outside(code_str, *import_modules):
     """Runs a code string in a separate process, pickles the result, and returns it"""
     import_modules_str = 'import %s' % ', '.join(import_modules) if import_modules else ''
-    command_string = 'import sys, pickle; sys.path = pickle.loads(sys.stdin.buffer.read()); %s; sys.stdout.buffer.write(pickle.dumps(%s))' % (import_modules_str, code_str)
+    if sys.version_info.major < 3:
+        command_string = 'import sys, pickle; sys.path = pickle.loads(sys.stdin.read()); %s; sys.stdout.write(pickle.dumps(%s))' % (import_modules_str, code_str)
+    else:
+        command_string = 'import sys, pickle; sys.path = pickle.loads(sys.stdin.buffer.read()); %s; sys.stdout.buffer.write(pickle.dumps(%s))' % (import_modules_str, code_str)
     pickle_path = pickle.dumps(sys.path)
     p = subprocess.Popen([sys.executable, "-c", command_string], stdin=subprocess.PIPE, stdout=subprocess.PIPE, env=os.environ)
     results, errors = p.communicate(pickle_path)
