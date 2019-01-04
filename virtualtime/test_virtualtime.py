@@ -393,7 +393,7 @@ class SleepBase(object):
         self.setUp()
 
     def setUp(self):
-        self.initial_waiter_count = len(virtualtime._virtual_time_state._Condition__waiters)
+        self.initial_waiter_count = self.count_waiters()
 
     def teardown_method(self, method):  # This is a wrapper of tearDown for py.test (py.test and nose take different method setup methods)
         self.tearDown()
@@ -401,12 +401,19 @@ class SleepBase(object):
     def tearDown(self):
         del self.initial_waiter_count
 
+    if sys.version_info.major < 3:
+        def count_waiters(self):
+            return len(virtualtime._virtual_time_state._Condition__waiters)
+    else:
+        def count_waiters(self):
+            return len(virtualtime._virtual_time_state._waiters)
+
     def wait_sleep_started(self, sleep_count, max_wait=5.0):
         """Waits for the given number of sleeps to start before continuing (with a timeout)"""
         if not self.virtual_time_enabled:
             return
         start_wait_check = virtualtime._original_time()
-        while len(virtualtime._virtual_time_state._Condition__waiters) < self.initial_waiter_count + sleep_count:
+        while self.count_waiters() < self.initial_waiter_count + sleep_count:
             virtualtime._original_sleep(0.001)
             delay = virtualtime._original_time() - start_wait_check
             if delay > max_wait:
@@ -515,7 +522,7 @@ class TestFastForward(RunPatched):
         msg_dict['stop'] = True
         event.set()
         catcher_thread.join()
-        assert offsets == range(1, 1001) + [0]
+        assert offsets == list(range(1, 1001)) + [0]
 
     @restore_time_after
     def test_fast_forward_datetime_style(self):
