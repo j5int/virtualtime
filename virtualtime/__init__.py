@@ -597,9 +597,12 @@ def enabled():
     ]
     constant_functions = [
         ("datetime.datetime", _original_datetime_module.datetime, _original_datetime_type),
-        ("threading._time",   threading._time,                    _original_time),
-        ("threading._sleep",  threading._sleep,                   _original_sleep),
     ]
+    if sys.version_info.major < 3:
+        constant_functions.extend([
+            ("threading._sleep",  threading._sleep,                   _original_sleep),
+            ("threading._time",   threading._time,                    _original_time)
+        ])
     for check_name, check_function, correct_function in constant_functions:
         if check_function != correct_function:
             raise ValueError("%s should be %s but has been patched as %s" % (check_name, check_function, correct_function))

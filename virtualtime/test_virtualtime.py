@@ -20,7 +20,10 @@ from nose.plugins.attrib import attr
 def outside(code_str, *import_modules):
     """Runs a code string in a separate process, pickles the result, and returns it"""
     import_modules_str = 'import %s' % ', '.join(import_modules) if import_modules else ''
-    command_string = 'import sys, pickle; sys.path = pickle.loads(sys.stdin.read()); %s; sys.stdout.write(pickle.dumps(%s))' % (import_modules_str, code_str)
+    if sys.version_info.major < 3:
+        command_string = 'import sys, pickle; sys.path = pickle.loads(sys.stdin.read()); %s; sys.stdout.write(pickle.dumps(%s))' % (import_modules_str, code_str)
+    else:
+        command_string = 'import sys, pickle; sys.path = pickle.loads(sys.stdin.buffer.read()); %s; sys.stdout.buffer.write(pickle.dumps(%s))' % (import_modules_str, code_str)
     pickle_path = pickle.dumps(sys.path)
     p = subprocess.Popen([sys.executable, "-c", command_string], stdin=subprocess.PIPE, stdout=subprocess.PIPE, env=os.environ)
     results, errors = p.communicate(pickle_path)
@@ -195,7 +198,11 @@ class RealTimeBase(object):
         # half way through the cannons, on the battle day
         overture_date = datetime_tz.datetime_tz(1812, 9, 10, 12, 7, 30, tzinfo=pytz.timezone("Europe/Moscow"))
         overture_datestr = overture_date.strftime("%Y-%m-%d %H:%M:%S+%Z")
-        assert overture_datestr == "1812-09-10 12:07:30+MSK"
+        if sys.version_info.major < 3:
+            assert overture_datestr == "1812-09-10 12:07:30+MSK"
+        else:
+            # Back then, there were no timezones...
+            assert overture_datestr == "1812-09-10 12:07:30+LMT"
         overture_timetuple = overture_date.utctimetuple()
         overture_timestr = time.strftime("%Y-%m-%d %H:%M:%S", overture_timetuple)
         assert overture_timestr == "1812-09-10 09:37:30"
@@ -209,13 +216,19 @@ class RealTimeBase(object):
         # and let's handle the 0-99 and 100-999 cases that are different on different python versions
         rufus_date = overture_date.replace(year=12)
         rufus_datestr = rufus_date.strftime("%Y-%m-%d %H:%M:%S+%Z")
-        assert rufus_datestr == "12-09-10 12:07:30+MSK"
+        if sys.version_info.major < 3:
+            assert rufus_datestr == "12-09-10 12:07:30+MSK"
+        else:
+            assert rufus_datestr == "12-09-10 12:07:30+LMT"
         rufus_timetuple = rufus_date.utctimetuple()
         rufus_timestr = time.strftime("%Y-%m-%d %H:%M:%S", rufus_timetuple)
         assert rufus_timestr == "12-09-10 09:37:30"
         ordono_date = overture_date.replace(year=912)
         ordono_datestr = ordono_date.strftime("%Y-%m-%d %H:%M:%S+%Z")
-        assert ordono_datestr == "912-09-10 12:07:30+MSK"
+        if sys.version_info.major < 3:
+            assert ordono_datestr == "912-09-10 12:07:30+MSK"
+        else:
+            assert ordono_datestr == "912-09-10 12:07:30+LMT"
         ordono_timetuple = ordono_date.utctimetuple()
         ordono_timestr = time.strftime("%Y-%m-%d %H:%M:%S", ordono_timetuple)
         assert ordono_timestr == "912-09-10 09:37:30"
@@ -393,7 +406,7 @@ class SleepBase(object):
         self.setUp()
 
     def setUp(self):
-        self.initial_waiter_count = len(virtualtime._virtual_time_state._Condition__waiters)
+        self.initial_waiter_count = self.count_waiters()
 
     def teardown_method(self, method):  # This is a wrapper of tearDown for py.test (py.test and nose take different method setup methods)
         self.tearDown()
@@ -401,12 +414,19 @@ class SleepBase(object):
     def tearDown(self):
         del self.initial_waiter_count
 
+    if sys.version_info.major < 3:
+        def count_waiters(self):
+            return len(virtualtime._virtual_time_state._Condition__waiters)
+    else:
+        def count_waiters(self):
+            return len(virtualtime._virtual_time_state._waiters)
+
     def wait_sleep_started(self, sleep_count, max_wait=5.0):
         """Waits for the given number of sleeps to start before continuing (with a timeout)"""
         if not self.virtual_time_enabled:
             return
         start_wait_check = virtualtime._original_time()
-        while len(virtualtime._virtual_time_state._Condition__waiters) < self.initial_waiter_count + sleep_count:
+        while self.count_waiters() < self.initial_waiter_count + sleep_count:
             virtualtime._original_sleep(0.001)
             delay = virtualtime._original_time() - start_wait_check
             if delay > max_wait:
@@ -515,7 +535,7 @@ class TestFastForward(RunPatched):
         msg_dict['stop'] = True
         event.set()
         catcher_thread.join()
-        assert offsets == range(1, 1001) + [0]
+        assert offsets == list(range(1, 1001)) + [0]
 
     @restore_time_after
     def test_fast_forward_datetime_style(self):

@@ -48,7 +48,7 @@ def test_instantiation():
     try:
         c = datetime_tz.datetime_tz(a)
     except TypeError as e:
-        if not e.message == "Must specify a timezone!":
+        if not e.args[0] == "Must specify a timezone!":
             c = False
     assert c is None
 
