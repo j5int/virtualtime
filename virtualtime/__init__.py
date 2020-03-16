@@ -244,8 +244,8 @@ class datetime(_original_datetime_module.datetime):
     if _has_pre_1900_bug or _has_pre_1000_bug:
         strftime = _fixed_strftime
 
-    def astimezone(self, tzinfo):
-        d = _underlying_datetime_type.astimezone(self, tzinfo)
+    def astimezone(self, tz=None):
+        d = _underlying_datetime_type.astimezone(self, tz)
         return _original_datetime_type.__new__(type(self), d)
     astimezone.__doc__ = _underlying_datetime_type.astimezone.__doc__
 
