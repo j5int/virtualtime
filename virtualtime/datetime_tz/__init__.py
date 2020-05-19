@@ -11,9 +11,6 @@ from datetime_tz import localtz_set, timedelta, get_naive, localtz_name, require
 
 class datetime_tz(base_datetime_tz.datetime_tz):
 
-  def __hash__(self):
-    return super(datetime_tz, self).__hash__()
-
   def __eq__(self, other):
     if isinstance(other, patched_datetime_type) and other.tzinfo is None:
         other = localize(other)
