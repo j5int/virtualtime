@@ -3,6 +3,7 @@
 from virtualtime import datetime_tz
 import datetime
 import pytz
+from virtualtime.datetime_tz import PY2, localize
 
 def test_type_of_now_makes_sense():
     n = datetime_tz.datetime_tz.now()
@@ -10,29 +11,41 @@ def test_type_of_now_makes_sense():
 
 def test_compare_tz_first():
     a = datetime.datetime(2012,3,4,1,2,3)
+    if not PY2:
+        a = localize(a)
     b = datetime_tz.datetime_tz(2012,3,4,1,2,3)
     assert a == b
 
 def test_compare_tz_second():
     a = datetime.datetime(2012,3,4,1,2,3)
+    if not PY2:
+        a = localize(a)
     b = datetime_tz.datetime_tz(2012,3,4,1,2,3)
     assert b == a
 
 def test_compare_greater():
     a = datetime.datetime(2012,3,4,3,2,3)
+    if not PY2:
+        a = localize(a)
     b = datetime_tz.datetime_tz(2012,3,4,1,2,3)
     assert a > b
     assert a >= b
     a = datetime.datetime(2012,3,3,3,2,3)
+    if not PY2:
+        a = localize(a)
     assert b > a
     assert b >= a
 
 def test_compare_less():
     a = datetime.datetime(2012,3,4,3,2,3)
+    if not PY2:
+        a = localize(a)
     b = datetime_tz.datetime_tz(2012,3,4,1,2,3)
     assert b < a
     assert b <= a
     a = datetime.datetime(2012,3,3,3,2,3)
+    if not PY2:
+        a = localize(a)
     assert a < b
     assert a <= b
 

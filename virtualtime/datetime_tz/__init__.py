@@ -8,51 +8,59 @@ assert issubclass(base_datetime_tz.datetime_tz, patched_datetime_type), 'The bas
 
 from datetime_tz import detect_timezone, iterate, localtz
 from datetime_tz import localtz_set, timedelta, get_naive, localtz_name, require_timezone
+import sys
 
-class datetime_tz(base_datetime_tz.datetime_tz):
+PY2 = sys.version_info[0] == 2
 
-  def __eq__(self, other):
-    if isinstance(other, patched_datetime_type) and other.tzinfo is None:
-        other = localize(other)
-    return super(datetime_tz, self).__eq__(other)
+if PY2:
+    #These mixed type comparison features were misguided and we have removed support for them in PY3 (where comparisons in general are stricter)
+    class datetime_tz(base_datetime_tz.datetime_tz):
 
-  def __gt__(self, other):
-    if isinstance(other, patched_datetime_type) and other.tzinfo is None:
-        other = localize(other)
-    return super(datetime_tz, self).__gt__(other)
+      def __eq__(self, other):
+        if isinstance(other, patched_datetime_type) and other.tzinfo is None:
+            other = localize(other)
+        return super(datetime_tz, self).__eq__(other)
 
-  def __ge__(self, other):
-    if isinstance(other, patched_datetime_type) and other.tzinfo is None:
-        other = localize(other)
-    return super(datetime_tz, self).__ge__(other)
+      def __gt__(self, other):
+        if isinstance(other, patched_datetime_type) and other.tzinfo is None:
+            other = localize(other)
+        return super(datetime_tz, self).__gt__(other)
 
-  def __lt__(self, other):
-    if isinstance(other, patched_datetime_type) and other.tzinfo is None:
-        other = localize(other)
-    return super(datetime_tz, self).__lt__(other)
+      def __ge__(self, other):
+        if isinstance(other, patched_datetime_type) and other.tzinfo is None:
+            other = localize(other)
+        return super(datetime_tz, self).__ge__(other)
 
-  def __le__(self, other):
-    if isinstance(other, patched_datetime_type) and other.tzinfo is None:
-        other = localize(other)
-    return super(datetime_tz, self).__le__(other)
+      def __lt__(self, other):
+        if isinstance(other, patched_datetime_type) and other.tzinfo is None:
+            other = localize(other)
+        return super(datetime_tz, self).__lt__(other)
 
-  def __ne__(self, other):
-    if isinstance(other, patched_datetime_type) and other.tzinfo is None:
-        other = localize(other)
-    return super(datetime_tz, self).__ne__(other)
+      def __le__(self, other):
+        if isinstance(other, patched_datetime_type) and other.tzinfo is None:
+            other = localize(other)
+        return super(datetime_tz, self).__le__(other)
 
-def localize(dt, force_to_local=True):
-    """Localize a datetime to the local timezone
+      def __ne__(self, other):
+        if isinstance(other, patched_datetime_type) and other.tzinfo is None:
+            other = localize(other)
+        return super(datetime_tz, self).__ne__(other)
 
-    If dt is naive, returns the same datetime with the local timezone
-    Else, uses astimezone to convert"""
-    dt = base_datetime_tz.localize(dt, force_to_local)
-    if isinstance(dt, base_datetime_tz.datetime_tz) and not isinstance(dt, datetime_tz):
-        dt = datetime_tz(dt)
-    return dt
+    def localize(dt, force_to_local=True):
+        """Localize a datetime to the local timezone
 
-datetime_tz.min = datetime_tz(base_datetime_tz.datetime_tz.min)
-datetime_tz.max = datetime_tz(base_datetime_tz.datetime_tz.max)
+        If dt is naive, returns the same datetime with the local timezone
+        Else, uses astimezone to convert"""
+        dt = base_datetime_tz.localize(dt, force_to_local)
+        if isinstance(dt, base_datetime_tz.datetime_tz) and not isinstance(dt, datetime_tz):
+            dt = datetime_tz(dt)
+        return dt
+
+    datetime_tz.min = datetime_tz(base_datetime_tz.datetime_tz.min)
+    datetime_tz.max = datetime_tz(base_datetime_tz.datetime_tz.max)
+else:
+    datetime_tz = base_datetime_tz.datetime_tz
+    localize = base_datetime_tz.localize
 
 __all__ = ['datetime_tz', 'base_datetime_tz', 'detect_timezone', 'iterate', 'localtz',
     'localtz_set', 'localtz_name', 'timedelta', 'get_naive', 'require_timezone', 'localize']
