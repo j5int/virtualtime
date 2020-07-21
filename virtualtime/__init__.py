@@ -296,9 +296,6 @@ class datetime(_original_datetime_module.datetime):
         def now(cls, tz=None):
             """Virtualized datetime.datetime.now()"""
             # make the original datetime.now method counteract the offsets in time.time()
-            ## THIS SOMETIMES TRIGGERS IMPORT LOCKS ##
-            if tz == 0:
-                tz = None
             try:
                 dt = _underlying_datetime_type.now(tz=tz)
             except ImportError:
@@ -382,15 +379,23 @@ class virtual_datetime(datetime):
     @classmethod
     def now(cls, tz=None):
         """Virtualized datetime.datetime.now()"""
-        dt = _original_datetime_now(tz=tz) + _original_datetime_module.timedelta(seconds=_time_offset)
-        newargs = list(dt.timetuple()[0:6])+[dt.microsecond, dt.tzinfo]
+        try:
+            dt = _original_datetime_now(tz=tz)
+        except ImportError:
+            dt = alt_time_funcs.alt_get_local_datetime(tz=tz)
+        dt = dt + _original_datetime_module.timedelta(seconds=_time_offset)
+        newargs = list(_safe_timetuple_6(dt))+[dt.microsecond, dt.tzinfo]
         return _original_datetime_type.__new__(cls, *newargs)
 
     @classmethod
     def utcnow(cls):
         """Virtualized datetime.datetime.utcnow()"""
-        dt = _original_datetime_utcnow() + _original_datetime_module.timedelta(seconds=_time_offset)
-        newargs = list(dt.timetuple()[0:6])+[dt.microsecond, dt.tzinfo]
+        try:
+            dt = _original_datetime_utcnow()
+        except ImportError:
+            dt = alt_time_funcs.alt_get_utc_datetime()
+        dt = dt + _original_datetime_module.timedelta(seconds=_time_offset)
+        newargs = list(_safe_timetuple_6(dt))+[dt.microsecond, dt.tzinfo]
         return _original_datetime_type.__new__(cls, *newargs)
 
 _original_datetime_type = datetime

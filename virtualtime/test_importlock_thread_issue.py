@@ -164,7 +164,7 @@ class TestBaseCodeWhenImportLockHeld(TestBaseCodeNoImportLock):
         self.background_result = TestBaseCodeNoImportLock.log_function_result(self, target, had_exception)
 
 
-class TestVirtualTimeCodeWhenImportLockHeld(TestBaseCodeWhenImportLockHeld):
+class TestVirtualTimeBaseCodeWhenImportLockHeld(TestBaseCodeWhenImportLockHeld):
     date_cls = virtualtime.datetime_module.date
     datetime_cls = virtualtime.datetime
     time_cls = virtualtime.time
@@ -172,14 +172,10 @@ class TestVirtualTimeCodeWhenImportLockHeld(TestBaseCodeWhenImportLockHeld):
     expect_import_error = False
 
 
-    def setUp(self):
-        TestBaseCodeNoImportLock.setUp(self)
-        virtualtime.patch_datetime_module()
-
-
-    def tearDown(self):
-        virtualtime.unpatch_datetime_module()
-        TestBaseCodeNoImportLock.tearDown(self)
+class TestVirtualTimeVirtualCodeWhenImportLockHeld2(TestVirtualTimeBaseCodeWhenImportLockHeld):
+    date_cls = virtualtime.datetime_module.date
+    datetime_cls = virtualtime.virtual_datetime
+    time_cls = virtualtime.time
 
 
 if __name__ == '__main__':
