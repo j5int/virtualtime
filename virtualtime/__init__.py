@@ -233,6 +233,36 @@ class datetime(_original_datetime_module.datetime):
         newargs = list(_safe_timetuple_6(dt))+[dt.microsecond, dt.tzinfo]
         return _underlying_datetime_type.__new__(cls, *newargs)
 
+    def timetuple(self):
+        """Return a time.struct_time such as returned by time.localtime().
+
+        d.timetuple() is equivalent to time.struct_time((d.year, d.month, d.day, d.hour, d.minute, d.second, d.weekday(), yday, dst)),
+        where yday = d.toordinal() - date(d.year, 1, 1).toordinal() + 1 is the day number within the current year starting with 1 for January 1st.
+        The tm_isdst flag of the result is set according to the dst() method:
+        * tzinfo is None or dst() returns None, tm_isdst is set to -1
+        * else if dst() returns a non-zero value, tm_isdst is set to 1
+        * else tm_isdst is set to 0.
+        """
+        try:
+            return _underlying_datetime_type.timetuple(self)
+        except ImportError:
+            dst = -1 if self.tzinfo is None else (1 if self.tzinfo.dst(self) else 0)
+            yday = self.toordinal() - datetime_module.date(self.year, 1, 1).toordinal() + 1
+            return (self.year, self.month, self.day, self.hour, self.minute, self.second, self.weekday(), yday, dst)
+
+    def utctimetuple(self):
+        """Return UTC time tuple, compatible with time.localtime()."""
+        try:
+            return _underlying_datetime_type.utctimetuple(self)
+        except ImportError:
+            if self.tzinfo is not None:
+                offset = self.tzinfo.dst(self)
+                utc_self = self + datetime_module.timedelta(seconds=offset)
+            else:
+                utc_self = self
+            yday = utc_self.toordinal() - datetime_module.date(utc_self.year, 1, 1).toordinal() + 1
+            return (utc_self.year, utc_self.month, utc_self.day, utc_self.hour, utc_self.minute, utc_self.second, utc_self.weekday(), yday, 0)
+
     def _fixed_strftime(self, format_str):
         """Adjusted version of datetime's strftime that handles dates before 1900 or 1000, if python's is broken"""
         if getattr(self, "year", 2000) < _STRFTIME_MIN_YEAR:
