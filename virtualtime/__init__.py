@@ -303,6 +303,8 @@ class datetime(_original_datetime_module.datetime):
 
     def _fixed_strftime(self, format_str):
         """Adjusted version of datetime's strftime that handles dates before 1900 or 1000, if python's is broken"""
+        # Also handles ImportErrors if the datetime module produces them, falling back to the time.strftime implementation
+        # This may produce slight discrepancies as datetime.strftime has some additional code to handle %z, %Z, %f
         if getattr(self, "year", 2000) < _STRFTIME_MIN_YEAR:
             # Python datetime doesn't support formatting dates before 1900/1000 (depending on Python version).
             # Since the Gregorian calendar has a cycle of 400 years, flip the date into the future
@@ -311,10 +313,19 @@ class datetime(_original_datetime_module.datetime):
             while year < 1900: year += 400
             d1 = self.replace(year=year)
             d2 = self.replace(year=year+400)
-            s1 = _underlying_datetime_type.strftime(d1, format_str)
-            s2 = _underlying_datetime_type.strftime(d2, format_str)
+            try:
+                s1 = _underlying_datetime_type.strftime(d1, format_str)
+            except ImportError:
+                s1 = _underlying_strftime(format_str, datetime.timetuple(d1))
+            try:
+                s2 = _underlying_datetime_type.strftime(d2, format_str)
+            except ImportError:
+                s2 = _underlying_strftime(format_str, datetime.timetuple(d2))
             return _repair_year(s1, s2, year, year+400, self.year)
-        return _underlying_datetime_type.strftime(self, format_str)
+        try:
+            return _underlying_datetime_type.strftime(self, format_str)
+        except ImportError:
+            return _underlying_strftime(format_str, datetime.timetuple(self))
 
     if _has_pre_1900_bug or _has_pre_1000_bug:
         strftime = _fixed_strftime
