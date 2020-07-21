@@ -261,8 +261,17 @@ class date(_original_datetime_module.date):
             yday = self.toordinal() - datetime_module.date(self.year, 1, 1).toordinal() + 1
             return (self.year, self.month, self.day, 0, 0, 0, self.weekday(), yday, -1)
 
+    def strftime(self, format_str):
+        """Adjusted version of datetime's strftime that handles dates before 1900 or 1000, if python's is broken"""
+        # Also handles ImportErrors if the datetime module produces them, falling back to the time.strftime implementation
+        try:
+            return _underlying_date_type.strftime(self, format_str)
+        except ImportError:
+            yday = self.toordinal() - datetime_module.date(self.year, 1, 1).toordinal() + 1
+            return _underlying_strftime(format_str, (self.year, self.month, self.day, 0, 0, 0, self.weekday(), yday, -1))
+
 # this time class doesn't actually adjust times to reflect the virtual time offset, but does prevent ImportErrors
-class time_no_importerror(_original_datetime_module.date):
+class time_no_importerror(_original_datetime_module.time):
     def strftime(self, format_str):
         """Adjusted version of datetime's strftime that handles dates before 1900 or 1000, if python's is broken"""
         # Also handles ImportErrors if the datetime module produces them, falling back to the time.strftime implementation
@@ -270,7 +279,7 @@ class time_no_importerror(_original_datetime_module.date):
             return _underlying_time_type.strftime(self, format_str)
         except ImportError:
             # copy what datetimemodule.c does to produce a time tuple with standard date
-            return _underlying_strftime(format_str, (1900, 1, 1, self.hour, self.minute, self.second, 0, 1, 1))
+            return _underlying_strftime(format_str, (1900, 1, 1, self.hour, self.minute, self.second, 0, 1, -1))
 
 _virtual_datetime_attrs = dict(_underlying_datetime_type.__dict__.items())
 class datetime(_original_datetime_module.datetime):
