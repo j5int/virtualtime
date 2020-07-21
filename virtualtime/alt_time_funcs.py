@@ -30,15 +30,15 @@ elif sys.platform.startswith('linux'):
 
     def alt_get_local_datetime():
         t = timeval()
-        if libc.gettimeofday(t, None) == 0:
+        if libc.gettimeofday(ctypes.byref(t), None) == 0:
             return datetime.datetime.fromtimestamp(float(t.seconds) + (t.microseconds / 1000000.), None)
         raise ValueError("Error retrieving time")
 
     def alt_get_utc_datetime():
         t = timeval()
-        if libc.gettimeofday(t, None) == 0:
+        if libc.gettimeofday(ctypes.byref(t), None) == 0:
             libc.tzset()
-            utc_offset = (ctypes.c_int32).in_dll(libc, 'timezone')
+            utc_offset = (ctypes.c_int32).in_dll(libc, 'timezone').value
             return datetime.datetime.fromtimestamp(float(t.seconds) + (t.microseconds / 1000000.) + utc_offset,
                                                    None)
         raise ValueError("Error retrieving time")
