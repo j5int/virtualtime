@@ -11,6 +11,22 @@ import sys
 import datetime
 import unittest
 
+if sys.platform.startswith('win'):
+    try:
+        import win32api
+    except ImportError:
+        win32api = None
+elif sys.platform.startswith('linux'):
+    try:
+        import ctypes
+        libc = ctypes.CDLL("libc.so.6")
+        class timeval(ctypes.Structure):
+            _fields_ = [("seconds", ctypes.c_long),("microseconds", ctypes.c_long)]
+    except (ImportError, OSError):
+        ctypes = None
+        libc = None
+        timeval = None
+
 def use_cpu(n, symbol, finish_early_event=None):
     a = 3
     for i in range(n):
@@ -19,6 +35,33 @@ def use_cpu(n, symbol, finish_early_event=None):
             sys.stdout.write(symbol)
         if finish_early_event is not None and finish_early_event.is_set():
             return
+
+def win32_get_local_datetime():
+    t = win32api.GetLocalTime()
+    return datetime.datetime(t[0], t[1], t[3], t[4], t[5], t[6], t[7]*1000)
+
+def win32_get_utc_datetime():
+    t = win32api.GetSystemTime()
+    return datetime.datetime(t[0], t[1], t[3], t[4], t[5], t[6], t[7]*1000)
+
+def unix_get_local_datetime():
+    t = timeval()
+    if libc.gettimeofday(t, None) == 0:
+        return datetime.datetime.fromtimestamp(float(t.seconds)+(t.microseconds/1000000.), None)
+    raise ValueError("Error retrieving time")
+
+def unix_get_utc_datetime():
+    t = timeval()
+    if libc.gettimeofday(t, None) == 0:
+        libc.tzset()
+        utc_offset = (ctypes.c_int32).in_dll(libc, 'timezone')
+        return datetime.datetime.fromtimestamp(float(t.seconds)+(t.microseconds/1000000.)+utc_offset, None)
+    raise ValueError("Error retrieving time")
+
+if sys.platform.startswith('win'):
+    get_local_datetime, get_utc_datetime = win32_get_local_datetime, win32_get_utc_datetime
+elif sys.platform.startswith('linux'):
+    get_local_datetime, get_utc_datetime = unix_get_local_datetime, unix_get_utc_datetime
 
 def check_unsafe_function(target):
     def checker(self, *args, **kwargs):
@@ -38,7 +81,7 @@ class TestBaseCodeNoImportLock(unittest.TestCase):
         sys.modules['time'] = self.previous_time_module
 
     def unsafe_function_delay(self):
-        use_cpu(20000, '+')
+        # use_cpu(20000, '+')
         sys.stdout.write('&' if 'time' in sys.modules else '/')
 
     def unsafe_function_raised(self, target, had_exception):
@@ -62,9 +105,16 @@ class TestBaseCodeNoImportLock(unittest.TestCase):
 
     @check_unsafe_function
     def test_time_time(self):
-        datetime.date.today()
-        datetime.datetime.now()
-        datetime.datetime.utcnow()
+        today = datetime.date.today()
+        now = datetime.datetime.now(); win32_now = get_local_datetime()
+        utcnow = datetime.datetime.utcnow(); win32_utcnow = get_utc_datetime()
+        assert today == win32_now.date()
+        now_delta = win32_now - now
+        utcnow_delta = win32_utcnow - utcnow
+        assert now_delta.days == 0
+        assert utcnow_delta.days == 0
+        assert (now_delta.seconds*1000000 + now_delta.microseconds) <= 50000
+        assert (utcnow_delta.seconds*1000000 + utcnow_delta.microseconds) <= 50000
 
     @check_unsafe_function
     def test_build_struct_time(self):
@@ -90,7 +140,7 @@ class TestBaseCodeWhenImportLockHeld(TestBaseCodeNoImportLock):
         try:
             background_thread = threading.Thread(target=self.expect_import_error, name='background_lock_wanter', args=(target, complete_event))
             background_thread.start()
-            use_cpu(100000, '.', complete_event)
+            use_cpu(100000, '.', complete_event) # this is like a timeout without using time.sleep
         finally:
             imp.release_lock()
         sys.stdout.write('\n')
