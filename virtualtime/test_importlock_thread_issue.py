@@ -165,7 +165,7 @@ class TestBaseCodeWhenImportLockHeld(TestBaseCodeNoImportLock):
 
 
 class TestVirtualTimeBaseCodeWhenImportLockHeld(TestBaseCodeWhenImportLockHeld):
-    date_cls = virtualtime.datetime_module.date
+    date_cls = virtualtime.date
     datetime_cls = virtualtime.datetime
     time_cls = virtualtime.time
 
@@ -173,9 +173,7 @@ class TestVirtualTimeBaseCodeWhenImportLockHeld(TestBaseCodeWhenImportLockHeld):
 
 
 class TestVirtualTimeVirtualCodeWhenImportLockHeld2(TestVirtualTimeBaseCodeWhenImportLockHeld):
-    date_cls = virtualtime.datetime_module.date
     datetime_cls = virtualtime.virtual_datetime
-    time_cls = virtualtime.time
 
 
 if __name__ == '__main__':

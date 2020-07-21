@@ -220,8 +220,46 @@ def _safe_timetuple_6(dt):
     except ImportError:
         return (dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second)
 
+def _safe_datetuple_3(dt):
+    try:
+        return dt.timetuple()[0:3]
+    except ImportError:
+        return (dt.year, dt.month, dt.day)
+
 _original_datetime_module = datetime_module
 _underlying_datetime_type = _original_datetime_module.datetime
+_underlying_date_type = _original_datetime_module.date
+_underlying_time_type = _original_datetime_module.time
+
+# this date class doesn't actually adjust dates to reflect the virtual time offset, but does prevent ImportErrors
+class date(_original_datetime_module.date):
+    def __new__(cls, *args, **kwargs):
+        if args and isinstance(args[0], _underlying_date_type):
+            dt = args[0]
+        else:
+            dt = _underlying_date_type.__new__(cls, *args, **kwargs)
+        newargs = list(_safe_datetuple_3(dt))
+        return _underlying_date_type.__new__(cls, *newargs)
+
+    @classmethod
+    def today(cls):
+        try:
+            return _underlying_date_type.today()
+        except ImportError:
+            now = alt_time_funcs.alt_get_local_datetime()
+            return _underlying_date_type.__new__(cls, now.year, now.month, now.day)
+
+    def timetuple(self):
+        """Return a time.struct_time such as returned by time.localtime().
+
+        d.timetuple() is equivalent to time.struct_time((d.year, d.month, d.day, 0, 0, 0, d.weekday(), yday, -1)),
+        where yday = d.toordinal() - date(d.year, 1, 1).toordinal() + 1 is the day number within the current year starting with 1 for January 1st.
+        """
+        try:
+            return _underlying_date_type.timetuple(self)
+        except ImportError:
+            yday = self.toordinal() - datetime_module.date(self.year, 1, 1).toordinal() + 1
+            return (self.year, self.month, self.day, 0, 0, 0, self.weekday(), yday, -1)
 
 _virtual_datetime_attrs = dict(_underlying_datetime_type.__dict__.items())
 class datetime(_original_datetime_module.datetime):
