@@ -10,22 +10,8 @@ import imp
 import sys
 import datetime
 import unittest
-
-if sys.platform.startswith('win'):
-    try:
-        import win32api
-    except ImportError:
-        win32api = None
-elif sys.platform.startswith('linux'):
-    try:
-        import ctypes
-        libc = ctypes.CDLL("libc.so.6")
-        class timeval(ctypes.Structure):
-            _fields_ = [("seconds", ctypes.c_long),("microseconds", ctypes.c_long)]
-    except (ImportError, OSError):
-        ctypes = None
-        libc = None
-        timeval = None
+from alt_time_funcs import alt_get_local_datetime, alt_get_utc_datetime
+import virtualtime
 
 def use_cpu(n, symbol, finish_early_event=None):
     a = 3
@@ -36,95 +22,117 @@ def use_cpu(n, symbol, finish_early_event=None):
         if finish_early_event is not None and finish_early_event.is_set():
             return
 
-def win32_get_local_datetime():
-    t = win32api.GetLocalTime()
-    return datetime.datetime(t[0], t[1], t[3], t[4], t[5], t[6], t[7]*1000)
-
-def win32_get_utc_datetime():
-    t = win32api.GetSystemTime()
-    return datetime.datetime(t[0], t[1], t[3], t[4], t[5], t[6], t[7]*1000)
-
-def unix_get_local_datetime():
-    t = timeval()
-    if libc.gettimeofday(t, None) == 0:
-        return datetime.datetime.fromtimestamp(float(t.seconds)+(t.microseconds/1000000.), None)
-    raise ValueError("Error retrieving time")
-
-def unix_get_utc_datetime():
-    t = timeval()
-    if libc.gettimeofday(t, None) == 0:
-        libc.tzset()
-        utc_offset = (ctypes.c_int32).in_dll(libc, 'timezone')
-        return datetime.datetime.fromtimestamp(float(t.seconds)+(t.microseconds/1000000.)+utc_offset, None)
-    raise ValueError("Error retrieving time")
-
-if sys.platform.startswith('win'):
-    get_local_datetime, get_utc_datetime = win32_get_local_datetime, win32_get_utc_datetime
-elif sys.platform.startswith('linux'):
-    get_local_datetime, get_utc_datetime = unix_get_local_datetime, unix_get_utc_datetime
-
 def check_unsafe_function(target):
     def checker(self, *args, **kwargs):
         self.unsafe_function_delay()
-        try:
-            self.check_function(target, *args, **kwargs)
-            self.unsafe_function_raised(target, False)
-        except Exception as e:
-            self.unsafe_function_raised(target, e)
+        self.check_import_error_matches_expectation(target, *args, **kwargs)
     return checker
 
 class TestBaseCodeNoImportLock(unittest.TestCase):
+    date_cls = datetime.date
+    datetime_cls = virtualtime._underlying_datetime_type
+    time_cls = datetime.time
+
+    expect_import_error = False
+
     def setUp(self):
-        self.previous_time_module = sys.modules.pop('time')
+        self.previous_time_module = sys.modules.pop('time', None)
+        self.previous_strptime_module = sys.modules.pop('_strptime', None)
 
     def tearDown(self):
-        sys.modules['time'] = self.previous_time_module
+        if self.previous_time_module is not None:
+            sys.modules['time'] = self.previous_time_module
+        if self.previous_strptime_module is not None:
+            sys.modules['_strptime'] = self.previous_strptime_module
 
     def unsafe_function_delay(self):
-        # use_cpu(20000, '+')
-        sys.stdout.write('&' if 'time' in sys.modules else '/')
+        use_cpu(20000, '+')
+        if 'time' in sys.modules:
+            sys.stderr.write('sys.modules has time module, unexpectedly... ')
 
-    def unsafe_function_raised(self, target, had_exception):
+
+    def log_function_result(self, target, had_exception):
         """Used to indicate the result of the function"""
         if had_exception:
-            sys.stderr.write("Could not run %s.%s: %s\n" % (type(self).__name__, target.func_name, had_exception))
+            if self.expect_import_error and isinstance(had_exception, ImportError):
+                sys.stdout.write('%s.%s had ImportError, as expected\n' % (type(self).__name__, target.func_name))
+            elif not self.expect_import_error and isinstance(had_exception, ImportError):
+                sys.stderr.write("%s.%s had unexpected ImportError: %s\n" % (type(self).__name__, target.func_name, had_exception))
+            else:
+                sys.stderr.write("Could not run %s.%s: %r\n" % (type(self).__name__, target.func_name, had_exception))
         else:
-            sys.stdout.write("Ran %s.%s successfully\n" % (type(self).__name__, target.func_name))
+            if self.expect_import_error:
+                sys.stderr.write("Ran %s.%s successfully, but expected ImportError\n" % (type(self).__name__, target.func_name))
+            else:
+                sys.stdout.write("Ran %s.%s successfully\n" % (type(self).__name__, target.func_name))
         return had_exception
 
-    def check_function(self, target):
-        sys.stdout.write("Testing %s" % target.func_name)
-        target(self)
-        sys.stdout.write('\n')
+    def check_import_error_matches_expectation(self, target, complete_event=None):
+        sys.stdout.write("Testing %s: " % target.func_name)
+        try:
+            target(self)
+            self.log_function_result(target, False)
+        except Exception as e:
+            self.log_function_result(target, e)
+            if complete_event:
+                complete_event.set()
+            if not self.expect_import_error:
+                raise
+        if complete_event:
+            complete_event.set()
 
     @check_unsafe_function
-    def test_wrap_strftime(self):
-        self.assertEquals(datetime.date(2020, 02, 20).strftime('%Y-%m-%d'), '2020-02-20')
-        self.assertEquals(datetime.datetime(2020,02,20,20,20,20).strftime('%Y-%m-%d %H:%M:%S'), '2020-02-20 20:20:20')
-        self.assertEquals(datetime.time(20, 20, 20).strftime('%H:%M:%S'), '20:20:20')
+    def test_wrap_strftime_on_date(self):
+        self.assertEquals(self.date_cls(2020, 02, 20).strftime('%Y-%m-%d'), '2020-02-20')
 
     @check_unsafe_function
-    def test_time_time(self):
-        today = datetime.date.today()
-        now = datetime.datetime.now(); win32_now = get_local_datetime()
-        utcnow = datetime.datetime.utcnow(); win32_utcnow = get_utc_datetime()
-        assert today == win32_now.date()
+    def test_wrap_strftime_on_datetime(self):
+        self.assertEquals(self.datetime_cls(2020,02,20,20,20,20).strftime('%Y-%m-%d %H:%M:%S'), '2020-02-20 20:20:20')
+
+    @check_unsafe_function
+    def test_wrap_strftime_on_time(self):
+        self.assertEquals(self.time_cls(20, 20, 20).strftime('%H:%M:%S'), '20:20:20')
+
+    # the tests for today, now, and utcnow are separate because they can themselves import time as a side-effect
+    @check_unsafe_function
+    def test_time_time_today(self):
+        # we don't actually patch this function currently
+        today = self.date_cls.today()
+        win32_now = alt_get_local_datetime()
+        self.assertEqual(today, win32_now.date())
+
+    @check_unsafe_function
+    def test_time_time_now(self):
+        now = self.datetime_cls.now()
+        win32_now = alt_get_local_datetime()
         now_delta = win32_now - now
-        utcnow_delta = win32_utcnow - utcnow
         assert now_delta.days == 0
-        assert utcnow_delta.days == 0
         assert (now_delta.seconds*1000000 + now_delta.microseconds) <= 50000
-        assert (utcnow_delta.seconds*1000000 + utcnow_delta.microseconds) <= 50000
 
     @check_unsafe_function
-    def test_build_struct_time(self):
-        self.assertEquals(datetime.date(2020, 02, 20).timetuple(), (2020, 02, 20, 0, 0, 0, 3, 51, -1))
-        self.assertEquals(datetime.datetime(2020, 02, 20, 20, 20, 20).timetuple(), (2020, 02, 20, 20, 20, 20, 3, 51, -1))
-        self.assertEquals(datetime.datetime(2020, 02, 20, 20, 20, 20).utctimetuple(), (2020, 02, 20, 20, 20, 20, 3, 51, 0))
+    def test_time_time_utcnow(self):
+        utcnow = self.datetime_cls.utcnow()
+        win32_utcnow = alt_get_utc_datetime()
+        utcnow_delta = win32_utcnow - utcnow
+        assert utcnow_delta.days == 0
+        assert (utcnow_delta.seconds * 1000000 + utcnow_delta.microseconds) <= 50000
+
+    @check_unsafe_function
+    def test_build_struct_time_on_date(self):
+        self.assertEquals(self.date_cls(2020, 02, 20).timetuple(), (2020, 02, 20, 0, 0, 0, 3, 51, -1))
+
+    @check_unsafe_function
+    def test_build_struct_time_on_datetime(self):
+        self.assertEquals(self.datetime_cls(2020, 02, 20, 20, 20, 20).timetuple(), (2020, 02, 20, 20, 20, 20, 3, 51, -1))
+
+    @check_unsafe_function
+    def test_build_struct_time_on_datetime_utc(self):
+        self.assertEquals(self.datetime_cls(2020, 02, 20, 20, 20, 20).utctimetuple(), (2020, 02, 20, 20, 20, 20, 3, 51, 0))
 
     @check_unsafe_function
     def test_datetime_strptime(self):
-        d = datetime.datetime.strptime('2020-02-20 20:20:20', '%Y-%m-%d %H:%M:%S')
+        # Note: this currently doesn't actually raise an ImportError even if import lock is held, and manages to import _strptime anyway
+        d = self.datetime_cls.strptime('2020-02-20 20:20:20', '%Y-%m-%d %H:%M:%S')
         self.assertEquals(d.year, 2020)
         self.assertEquals(d.month, 02)
         self.assertEquals(d.day, 20)
@@ -133,31 +141,45 @@ class TestBaseCodeNoImportLock(unittest.TestCase):
         self.assertEquals(d.second, 20)
 
 class TestBaseCodeWhenImportLockHeld(TestBaseCodeNoImportLock):
-    def check_function(self, target):
-        print("Testing %s" % target.func_name)
+    expect_import_error = True
+    def check_import_error_matches_expectation(self, target, complete_event=None):
         complete_event = threading.Event()
         imp.acquire_lock()
         try:
-            background_thread = threading.Thread(target=self.expect_import_error, name='background_lock_wanter', args=(target, complete_event))
+            background_thread = threading.Thread(target=TestBaseCodeNoImportLock.check_import_error_matches_expectation,
+                                                 name='background_lock_wanter', args=(self, target, complete_event))
             background_thread.start()
-            use_cpu(100000, '.', complete_event) # this is like a timeout without using time.sleep
+            use_cpu(500000, '.', complete_event) # this is like a timeout without using time.sleep
         finally:
             imp.release_lock()
         sys.stdout.write('\n')
         background_thread.join(timeout=10)
-        assert self.background_result and isinstance(self.background_result, ImportError)
+        if self.expect_import_error:
+            assert self.background_result and isinstance(self.background_result, ImportError)
+        else:
+            self.assertFalse(self.background_result)
 
-    def expect_import_error(self, target, complete_event=None):
-        try:
-            target(self)
-            self.unsafe_function_raised(target, False)
-        except Exception as e:
-            self.unsafe_function_raised(target, e)
-        if complete_event:
-            complete_event.set()
 
-    def unsafe_function_raised(self, target, had_exception):
-        self.background_result = TestBaseCodeNoImportLock.unsafe_function_raised(self, target, had_exception)
+    def log_function_result(self, target, had_exception):
+        self.background_result = TestBaseCodeNoImportLock.log_function_result(self, target, had_exception)
+
+
+class TestVirtualTimeCodeWhenImportLockHeld(TestBaseCodeWhenImportLockHeld):
+    date_cls = virtualtime.datetime_module.date
+    datetime_cls = virtualtime.datetime
+    time_cls = virtualtime.time
+
+    expect_import_error = False
+
+
+    def setUp(self):
+        TestBaseCodeNoImportLock.setUp(self)
+        virtualtime.patch_datetime_module()
+
+
+    def tearDown(self):
+        virtualtime.unpatch_datetime_module()
+        TestBaseCodeNoImportLock.tearDown(self)
 
 
 if __name__ == '__main__':

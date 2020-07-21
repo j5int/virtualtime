@@ -7,6 +7,7 @@ import threading
 import types
 import time
 import datetime as datetime_module
+from . import alt_time_funcs
 import weakref
 if hasattr(weakref, 'WeakSet'):
     WeakSet = weakref.WeakSet
@@ -213,6 +214,12 @@ def _virtual_sleep(seconds):
         else:
             _original_sleep(0.001)
 
+def _safe_timetuple_6(dt):
+    try:
+        return dt.timetuple()[0:6]
+    except ImportError:
+        return (dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second)
+
 _original_datetime_module = datetime_module
 _underlying_datetime_type = _original_datetime_module.datetime
 
@@ -223,7 +230,7 @@ class datetime(_original_datetime_module.datetime):
             dt = args[0]
         else:
             dt = _underlying_datetime_type.__new__(cls, *args, **kwargs)
-        newargs = list(dt.timetuple()[0:6])+[dt.microsecond, dt.tzinfo]
+        newargs = list(_safe_timetuple_6(dt))+[dt.microsecond, dt.tzinfo]
         return _underlying_datetime_type.__new__(cls, *newargs)
 
     def _fixed_strftime(self, format_str):
@@ -259,20 +266,30 @@ class datetime(_original_datetime_module.datetime):
         def now(cls, tz=None):
             """Virtualized datetime.datetime.now()"""
             # make the original datetime.now method counteract the offsets in time.time()
-            dt = _underlying_datetime_type.now(tz=tz)
+            ## THIS SOMETIMES TRIGGERS IMPORT LOCKS ##
+            if tz == 0:
+                tz = None
+            try:
+                dt = _underlying_datetime_type.now(tz=tz)
+            except ImportError:
+                dt = alt_time_funcs.alt_get_local_datetime(tz=tz)
             if time.time != _original_time:
                 dt = dt + _original_datetime_module.timedelta(seconds=-_time_offset)
-            newargs = list(dt.timetuple()[0:6])+[dt.microsecond, dt.tzinfo]
+            newargs = list(_safe_timetuple_6(dt))+[dt.microsecond, dt.tzinfo]
             return _original_datetime_type.__new__(cls, *newargs)
 
         @classmethod
         def utcnow(cls):
             """Virtualized datetime.datetime.utcnow()"""
             # make the original datetime.utcnow method counteract the offsets in time.time()
-            dt = _underlying_datetime_type.utcnow()
+            ## THIS SOMETIMES TRIGGERS IMPORT LOCKS ##
+            try:
+                dt = _underlying_datetime_type.utcnow()
+            except ImportError:
+                dt = alt_time_funcs.alt_get_utc_datetime()
             if time.time != _original_time:
                 dt = dt + _original_datetime_module.timedelta(seconds=-_time_offset)
-            newargs = list(dt.timetuple()[0:6])+[dt.microsecond, dt.tzinfo]
+            newargs = list(_safe_timetuple_6(dt))+[dt.microsecond, dt.tzinfo]
             return _original_datetime_type.__new__(cls, *newargs)
 
     @classmethod
