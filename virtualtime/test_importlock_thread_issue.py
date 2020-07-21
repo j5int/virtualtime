@@ -56,9 +56,9 @@ class TestBaseCodeNoImportLock(unittest.TestCase):
 
     @check_unsafe_function
     def test_wrap_strftime(self):
-        datetime.date(2020, 02, 20).strftime('%Y-%m-%d')
-        datetime.datetime(2020,02,20,20,20,20).strftime('%Y-%m-%d %H:%M:%S')
-        datetime.time(20, 20, 20).strftime('%H:%M:%S')
+        self.assertEquals(datetime.date(2020, 02, 20).strftime('%Y-%m-%d'), '2020-02-20')
+        self.assertEquals(datetime.datetime(2020,02,20,20,20,20).strftime('%Y-%m-%d %H:%M:%S'), '2020-02-20 20:20:20')
+        self.assertEquals(datetime.time(20, 20, 20).strftime('%H:%M:%S'), '20:20:20')
 
     @check_unsafe_function
     def test_time_time(self):
@@ -68,13 +68,19 @@ class TestBaseCodeNoImportLock(unittest.TestCase):
 
     @check_unsafe_function
     def test_build_struct_time(self):
-        datetime.date(2020, 02, 20).timetuple()
-        datetime.datetime(2020, 02, 20, 20, 20, 20).timetuple()
-        datetime.datetime(2020, 02, 20, 20, 20, 20).utctimetuple()
+        self.assertEquals(datetime.date(2020, 02, 20).timetuple(), (2020, 02, 20, 0, 0, 0, 3, 51, -1))
+        self.assertEquals(datetime.datetime(2020, 02, 20, 20, 20, 20).timetuple(), (2020, 02, 20, 20, 20, 20, 3, 51, -1))
+        self.assertEquals(datetime.datetime(2020, 02, 20, 20, 20, 20).utctimetuple(), (2020, 02, 20, 20, 20, 20, 3, 51, 0))
 
     @check_unsafe_function
     def test_datetime_strptime(self):
-        datetime.datetime.strptime('2020-02-20 20:20:20', '%Y-%m-%d %H:%M:%S')
+        d = datetime.datetime.strptime('2020-02-20 20:20:20', '%Y-%m-%d %H:%M:%S')
+        self.assertEquals(d.year, 2020)
+        self.assertEquals(d.month, 02)
+        self.assertEquals(d.day, 20)
+        self.assertEquals(d.hour, 20)
+        self.assertEquals(d.minute, 20)
+        self.assertEquals(d.second, 20)
 
 class TestBaseCodeWhenImportLockHeld(TestBaseCodeNoImportLock):
     def check_function(self, target):
