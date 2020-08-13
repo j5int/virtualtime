@@ -7,6 +7,7 @@ import threading
 import types
 import time
 import datetime as datetime_module
+from . import alt_time_funcs
 import weakref
 if hasattr(weakref, 'WeakSet'):
     WeakSet = weakref.WeakSet
@@ -213,8 +214,76 @@ def _virtual_sleep(seconds):
         else:
             _original_sleep(0.001)
 
+def _safe_timetuple_6(dt):
+    try:
+        return dt.timetuple()[0:6]
+    except ImportError:
+        return (dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second)
+
+def _safe_datetuple_3(dt):
+    try:
+        return dt.timetuple()[0:3]
+    except ImportError:
+        return (dt.year, dt.month, dt.day)
+
 _original_datetime_module = datetime_module
 _underlying_datetime_type = _original_datetime_module.datetime
+_underlying_date_type = _original_datetime_module.date
+_underlying_time_type = _original_datetime_module.time
+
+# this date class doesn't actually adjust dates to reflect the virtual time offset, but does prevent ImportErrors
+# we don't patch this at present
+class date_no_importerror(_original_datetime_module.date):
+    def __new__(cls, *args, **kwargs):
+        if args and isinstance(args[0], _underlying_date_type):
+            dt = args[0]
+        else:
+            dt = _underlying_date_type.__new__(cls, *args, **kwargs)
+        newargs = list(_safe_datetuple_3(dt))
+        return _underlying_date_type.__new__(cls, *newargs)
+
+    @classmethod
+    def today(cls):
+        try:
+            return _underlying_date_type.today()
+        except ImportError:
+            now = alt_time_funcs.alt_get_local_datetime()
+            return _underlying_date_type.__new__(cls, now.year, now.month, now.day)
+
+    def timetuple(self):
+        """Return a time.struct_time such as returned by time.localtime().
+
+        d.timetuple() is equivalent to time.struct_time((d.year, d.month, d.day, 0, 0, 0, d.weekday(), yday, -1)),
+        where yday = d.toordinal() - date(d.year, 1, 1).toordinal() + 1 is the day number within the current year starting with 1 for January 1st.
+        """
+        try:
+            return _underlying_date_type.timetuple(self)
+        except ImportError:
+            yday = self.toordinal() - datetime_module.date(self.year, 1, 1).toordinal() + 1
+            return (self.year, self.month, self.day, 0, 0, 0, self.weekday(), yday, -1)
+
+    def strftime(self, format_str):
+        """Adjusted version of datetime's strftime that handles dates before 1900 or 1000, if python's is broken"""
+        # Also handles ImportErrors if the datetime module produces them, falling back to the time.strftime implementation
+        try:
+            return _underlying_date_type.strftime(self, format_str)
+        except ImportError:
+            yday = self.toordinal() - datetime_module.date(self.year, 1, 1).toordinal() + 1
+            format_str = alt_time_funcs.adjust_strftime(self, format_str)
+            return _underlying_strftime(format_str, (self.year, self.month, self.day, 0, 0, 0, self.weekday(), yday, -1))
+
+# this time class doesn't actually adjust times to reflect the virtual time offset, but does prevent ImportErrors
+# we don't patch this at present
+class time_no_importerror(_original_datetime_module.time):
+    def strftime(self, format_str):
+        """Adjusted version of datetime's strftime that handles dates before 1900 or 1000, if python's is broken"""
+        # Also handles ImportErrors if the datetime module produces them, falling back to the time.strftime implementation
+        try:
+            return _underlying_time_type.strftime(self, format_str)
+        except ImportError:
+            format_str = alt_time_funcs.adjust_strftime(self, format_str)
+            # copy what datetimemodule.c does to produce a time tuple with standard date
+            return _underlying_strftime(format_str, (1900, 1, 1, self.hour, self.minute, self.second, 0, 1, -1))
 
 _virtual_datetime_attrs = dict(_underlying_datetime_type.__dict__.items())
 class datetime(_original_datetime_module.datetime):
@@ -223,11 +292,43 @@ class datetime(_original_datetime_module.datetime):
             dt = args[0]
         else:
             dt = _underlying_datetime_type.__new__(cls, *args, **kwargs)
-        newargs = list(dt.timetuple()[0:6])+[dt.microsecond, dt.tzinfo]
+        newargs = list(_safe_timetuple_6(dt))+[dt.microsecond, dt.tzinfo]
         return _underlying_datetime_type.__new__(cls, *newargs)
+
+    def timetuple(self):
+        """Return a time.struct_time such as returned by time.localtime().
+
+        d.timetuple() is equivalent to time.struct_time((d.year, d.month, d.day, d.hour, d.minute, d.second, d.weekday(), yday, dst)),
+        where yday = d.toordinal() - date(d.year, 1, 1).toordinal() + 1 is the day number within the current year starting with 1 for January 1st.
+        The tm_isdst flag of the result is set according to the dst() method:
+        * tzinfo is None or dst() returns None, tm_isdst is set to -1
+        * else if dst() returns a non-zero value, tm_isdst is set to 1
+        * else tm_isdst is set to 0.
+        """
+        try:
+            return _underlying_datetime_type.timetuple(self)
+        except ImportError:
+            dst = -1 if self.tzinfo is None else (1 if self.tzinfo.dst(self) else 0)
+            yday = self.toordinal() - datetime_module.date(self.year, 1, 1).toordinal() + 1
+            return (self.year, self.month, self.day, self.hour, self.minute, self.second, self.weekday(), yday, dst)
+
+    def utctimetuple(self):
+        """Return UTC time tuple, compatible with time.localtime()."""
+        try:
+            return _underlying_datetime_type.utctimetuple(self)
+        except ImportError:
+            if self.tzinfo is not None:
+                offset = self.tzinfo.dst(self)
+                utc_self = self + datetime_module.timedelta(seconds=offset)
+            else:
+                utc_self = self
+            yday = utc_self.toordinal() - datetime_module.date(utc_self.year, 1, 1).toordinal() + 1
+            return (utc_self.year, utc_self.month, utc_self.day, utc_self.hour, utc_self.minute, utc_self.second, utc_self.weekday(), yday, 0)
 
     def _fixed_strftime(self, format_str):
         """Adjusted version of datetime's strftime that handles dates before 1900 or 1000, if python's is broken"""
+        # Also handles ImportErrors if the datetime module produces them, falling back to the time.strftime implementation
+        # This may produce slight discrepancies as datetime.strftime has some additional code to handle %z, %Z, %f
         if getattr(self, "year", 2000) < _STRFTIME_MIN_YEAR:
             # Python datetime doesn't support formatting dates before 1900/1000 (depending on Python version).
             # Since the Gregorian calendar has a cycle of 400 years, flip the date into the future
@@ -236,10 +337,19 @@ class datetime(_original_datetime_module.datetime):
             while year < 1900: year += 400
             d1 = self.replace(year=year)
             d2 = self.replace(year=year+400)
-            s1 = _underlying_datetime_type.strftime(d1, format_str)
-            s2 = _underlying_datetime_type.strftime(d2, format_str)
+            try:
+                s1 = _underlying_datetime_type.strftime(d1, format_str)
+            except ImportError:
+                s1 = _underlying_strftime(alt_time_funcs.adjust_strftime(d1, format_str), datetime.timetuple(d1))
+            try:
+                s2 = _underlying_datetime_type.strftime(d2, format_str)
+            except ImportError:
+                s2 = _underlying_strftime(alt_time_funcs.adjust_strftime(d2, format_str), datetime.timetuple(d2))
             return _repair_year(s1, s2, year, year+400, self.year)
-        return _underlying_datetime_type.strftime(self, format_str)
+        try:
+            return _underlying_datetime_type.strftime(self, format_str)
+        except ImportError:
+            return _underlying_strftime(alt_time_funcs.adjust_strftime(self, format_str), datetime.timetuple(self))
 
     if _has_pre_1900_bug or _has_pre_1000_bug:
         strftime = _fixed_strftime
@@ -259,20 +369,27 @@ class datetime(_original_datetime_module.datetime):
         def now(cls, tz=None):
             """Virtualized datetime.datetime.now()"""
             # make the original datetime.now method counteract the offsets in time.time()
-            dt = _underlying_datetime_type.now(tz=tz)
+            try:
+                dt = _underlying_datetime_type.now(tz=tz)
+            except ImportError:
+                dt = alt_time_funcs.alt_get_local_datetime(tz=tz)
             if time.time != _original_time:
                 dt = dt + _original_datetime_module.timedelta(seconds=-_time_offset)
-            newargs = list(dt.timetuple()[0:6])+[dt.microsecond, dt.tzinfo]
+            newargs = list(_safe_timetuple_6(dt))+[dt.microsecond, dt.tzinfo]
             return _original_datetime_type.__new__(cls, *newargs)
 
         @classmethod
         def utcnow(cls):
             """Virtualized datetime.datetime.utcnow()"""
             # make the original datetime.utcnow method counteract the offsets in time.time()
-            dt = _underlying_datetime_type.utcnow()
+            ## THIS SOMETIMES TRIGGERS IMPORT LOCKS ##
+            try:
+                dt = _underlying_datetime_type.utcnow()
+            except ImportError:
+                dt = alt_time_funcs.alt_get_utc_datetime()
             if time.time != _original_time:
                 dt = dt + _original_datetime_module.timedelta(seconds=-_time_offset)
-            newargs = list(dt.timetuple()[0:6])+[dt.microsecond, dt.tzinfo]
+            newargs = list(_safe_timetuple_6(dt))+[dt.microsecond, dt.tzinfo]
             return _original_datetime_type.__new__(cls, *newargs)
 
     @classmethod
@@ -335,15 +452,23 @@ class virtual_datetime(datetime):
     @classmethod
     def now(cls, tz=None):
         """Virtualized datetime.datetime.now()"""
-        dt = _original_datetime_now(tz=tz) + _original_datetime_module.timedelta(seconds=_time_offset)
-        newargs = list(dt.timetuple()[0:6])+[dt.microsecond, dt.tzinfo]
+        try:
+            dt = _original_datetime_now(tz=tz)
+        except ImportError:
+            dt = alt_time_funcs.alt_get_local_datetime(tz=tz)
+        dt = dt + _original_datetime_module.timedelta(seconds=_time_offset)
+        newargs = list(_safe_timetuple_6(dt))+[dt.microsecond, dt.tzinfo]
         return _original_datetime_type.__new__(cls, *newargs)
 
     @classmethod
     def utcnow(cls):
         """Virtualized datetime.datetime.utcnow()"""
-        dt = _original_datetime_utcnow() + _original_datetime_module.timedelta(seconds=_time_offset)
-        newargs = list(dt.timetuple()[0:6])+[dt.microsecond, dt.tzinfo]
+        try:
+            dt = _original_datetime_utcnow()
+        except ImportError:
+            dt = alt_time_funcs.alt_get_utc_datetime()
+        dt = dt + _original_datetime_module.timedelta(seconds=_time_offset)
+        newargs = list(_safe_timetuple_6(dt))+[dt.microsecond, dt.tzinfo]
         return _original_datetime_type.__new__(cls, *newargs)
 
 _original_datetime_type = datetime
