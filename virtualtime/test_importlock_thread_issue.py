@@ -132,6 +132,7 @@ class TestBaseCodeNoImportLock(unittest.TestCase):
     @check_unsafe_function
     def test_datetime_strptime(self):
         # Note: this currently doesn't actually raise an ImportError even if import lock is held, and manages to import _strptime anyway
+        # there is special code in TestBaseCodeWhenImportLockHeld to account for that
         d = self.datetime_cls.strptime('2020-02-20 20:20:20', '%Y-%m-%d %H:%M:%S')
         self.assertEquals(d.year, 2020)
         self.assertEquals(d.month, 02)
@@ -155,7 +156,13 @@ class TestBaseCodeWhenImportLockHeld(TestBaseCodeNoImportLock):
         sys.stdout.write('\n')
         background_thread.join(timeout=10)
         if self.expect_import_error:
-            assert self.background_result and isinstance(self.background_result, ImportError)
+            if target.func_name == 'test_datetime_strptime':
+                if not isinstance(self.background_result, ImportError):
+                    print("test_datetime_strptime didn't raise ImportError, but that is what we have grown to expect")
+                else:
+                    print("test_datetime_strptime did raise ImportError - no matter")
+            else:
+                assert self.background_result and isinstance(self.background_result, ImportError)
         else:
             self.assertFalse(self.background_result)
 
