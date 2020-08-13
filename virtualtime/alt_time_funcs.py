@@ -2,6 +2,7 @@
 
 import sys
 import datetime
+import re
 
 if sys.platform.startswith('win'):
     try:
@@ -49,3 +50,32 @@ else:
     def alt_get_utc_datetime():
         raise NotImplementedError()
 
+# searching for this will eliminate escaped percent-format signs
+format_re = re.compile('%.')
+
+def adjust_strftime(dt, format_str):
+    format_chars = list(format_re.finditer(format_str))
+    for m in reversed(format_chars):
+        text = m.group(0)
+        if text == '%f':
+            format_str = format_str[:m.start()] + ('%06d' % getattr(dt, 'microsecond', 0)) + format_str[m.end():]
+        elif text == '%z':
+            tzinfo = getattr(dt, 'tzinfo', None)
+            try:
+                offset_td = tzinfo.utcoffset(dt) if tzinfo else None
+            except NotImplementedError:
+                offset_td = None
+            if offset_td is not None:
+                offset = offset_td.days*24*3600 + offset_td.seconds
+                offset_sign, offset = ('+' if offset >= 0 else '-'), abs(offset)
+                minutes, seconds = divmod(offset, 60)
+                hours, minutes = divmod(minutes, 60)
+                offset_str = '%c%02d%02d' % (offset_sign, hours, minutes)
+            else:
+                offset_str = ''
+            format_str = format_str[:m.start()] + offset_str + format_str[m.end():]
+        elif text == '%Z':
+            tzinfo = getattr(dt, 'tzinfo', None)
+            tzname = '' if tzinfo is None else tzinfo.tzname(dt)
+            format_str = format_str[:m.start()] + tzname + format_str[m.end():]
+    return format_str

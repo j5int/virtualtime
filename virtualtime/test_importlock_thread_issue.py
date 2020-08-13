@@ -12,6 +12,7 @@ import datetime
 import unittest
 from alt_time_funcs import alt_get_local_datetime, alt_get_utc_datetime
 import virtualtime
+import pytz
 
 def use_cpu(n, symbol, finish_early_event=None):
     a = 3
@@ -90,8 +91,26 @@ class TestBaseCodeNoImportLock(unittest.TestCase):
         self.assertEquals(self.datetime_cls(2020,02,20,20,20,20).strftime('%Y-%m-%d %H:%M:%S'), '2020-02-20 20:20:20')
 
     @check_unsafe_function
+    def test_wrap_strftime_ext_on_datetime(self):
+        # check the datetime-specific extensions to strftime
+        naive_date = self.datetime_cls(2020, 02, 20, 20, 20, 20, 2020)
+        self.assertEquals(naive_date.strftime('%Y-%m-%d %H:%M:%S.%f %z %Z'), '2020-02-20 20:20:20.002020  ')
+        utc_date = self.datetime_cls(2020,02,20,20,20,20,2020, tzinfo=pytz.UTC)
+        self.assertEquals(utc_date.strftime('%Y-%m-%d %H:%M:%S.%f %z %Z'), '2020-02-20 20:20:20.002020 +0000 UTC')
+        bst_date = pytz.timezone('Europe/London').localize(self.datetime_cls(2020, 2, 20, 20, 20, 20, 2020))
+        self.assertEquals(bst_date.strftime('%Y-%m-%d %H:%M:%S.%f %z %Z'), '2020-02-20 20:20:20.002020 +0000 GMT')
+        bdt_date = pytz.timezone('Europe/London').localize(self.datetime_cls(2020, 8, 20, 20, 20, 20, 2020))
+        self.assertEquals(bdt_date.strftime('%Y-%m-%d %H:%M:%S.%f %z %Z'), '2020-08-20 20:20:20.002020 +0100 BST')
+
+    @check_unsafe_function
     def test_wrap_strftime_on_time(self):
         self.assertEquals(self.time_cls(20, 20, 20).strftime('%H:%M:%S'), '20:20:20')
+
+    @check_unsafe_function
+    def test_wrap_strftime_ext_on_time(self):
+        # check the datetime-specific extensions to strftime
+        self.assertEquals(self.time_cls(20, 20, 20).strftime('%H:%M:%S.%f'), '20:20:20.000000')
+        self.assertEquals(self.time_cls(20, 20, 20, 2020).strftime('%H:%M:%S.%f'), '20:20:20.002020')
 
     # the tests for today, now, and utcnow are separate because they can themselves import time as a side-effect
     @check_unsafe_function

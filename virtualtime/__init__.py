@@ -268,6 +268,7 @@ class date(_original_datetime_module.date):
             return _underlying_date_type.strftime(self, format_str)
         except ImportError:
             yday = self.toordinal() - datetime_module.date(self.year, 1, 1).toordinal() + 1
+            format_str = alt_time_funcs.adjust_strftime(self, format_str)
             return _underlying_strftime(format_str, (self.year, self.month, self.day, 0, 0, 0, self.weekday(), yday, -1))
 
 # this time class doesn't actually adjust times to reflect the virtual time offset, but does prevent ImportErrors
@@ -278,6 +279,7 @@ class time_no_importerror(_original_datetime_module.time):
         try:
             return _underlying_time_type.strftime(self, format_str)
         except ImportError:
+            format_str = alt_time_funcs.adjust_strftime(self, format_str)
             # copy what datetimemodule.c does to produce a time tuple with standard date
             return _underlying_strftime(format_str, (1900, 1, 1, self.hour, self.minute, self.second, 0, 1, -1))
 
@@ -336,16 +338,16 @@ class datetime(_original_datetime_module.datetime):
             try:
                 s1 = _underlying_datetime_type.strftime(d1, format_str)
             except ImportError:
-                s1 = _underlying_strftime(format_str, datetime.timetuple(d1))
+                s1 = _underlying_strftime(alt_time_funcs.adjust_strftime(d1, format_str), datetime.timetuple(d1))
             try:
                 s2 = _underlying_datetime_type.strftime(d2, format_str)
             except ImportError:
-                s2 = _underlying_strftime(format_str, datetime.timetuple(d2))
+                s2 = _underlying_strftime(alt_time_funcs.adjust_strftime(d2, format_str), datetime.timetuple(d2))
             return _repair_year(s1, s2, year, year+400, self.year)
         try:
             return _underlying_datetime_type.strftime(self, format_str)
         except ImportError:
-            return _underlying_strftime(format_str, datetime.timetuple(self))
+            return _underlying_strftime(alt_time_funcs.adjust_strftime(self, format_str), datetime.timetuple(self))
 
     if _has_pre_1900_bug or _has_pre_1000_bug:
         strftime = _fixed_strftime
