@@ -232,7 +232,8 @@ _underlying_date_type = _original_datetime_module.date
 _underlying_time_type = _original_datetime_module.time
 
 # this date class doesn't actually adjust dates to reflect the virtual time offset, but does prevent ImportErrors
-class date(_original_datetime_module.date):
+# we don't patch this at present
+class date_no_importerror(_original_datetime_module.date):
     def __new__(cls, *args, **kwargs):
         if args and isinstance(args[0], _underlying_date_type):
             dt = args[0]
@@ -272,6 +273,7 @@ class date(_original_datetime_module.date):
             return _underlying_strftime(format_str, (self.year, self.month, self.day, 0, 0, 0, self.weekday(), yday, -1))
 
 # this time class doesn't actually adjust times to reflect the virtual time offset, but does prevent ImportErrors
+# we don't patch this at present
 class time_no_importerror(_original_datetime_module.time):
     def strftime(self, format_str):
         """Adjusted version of datetime's strftime that handles dates before 1900 or 1000, if python's is broken"""

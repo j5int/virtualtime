@@ -191,7 +191,7 @@ class TestBaseCodeWhenImportLockHeld(TestBaseCodeNoImportLock):
 
 
 class TestVirtualTimeBaseCodeWhenImportLockHeld(TestBaseCodeWhenImportLockHeld):
-    date_cls = virtualtime.date
+    date_cls = virtualtime.date_no_importerror
     datetime_cls = virtualtime.datetime
     time_cls = virtualtime.time_no_importerror
 
